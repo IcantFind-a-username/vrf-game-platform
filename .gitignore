@@ -1,0 +1,15 @@
+# Foundry build artefacts
+out/
+cache/
+broadcast/
+
+# Dependencies (installed via `forge install`)
+lib/
+
+# Secrets
+.env
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
