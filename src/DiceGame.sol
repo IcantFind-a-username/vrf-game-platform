@@ -15,7 +15,7 @@ interface IAchievementNFT {
 
 /**
  * @title DiceGame
- * @notice Dice betting game integrated with the shared VRFConsumer and Treasury modules.
+ * @notice Dice betting game integrated with VRFConsumer, Treasury, and optional commit-reveal.
  */
 contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
     address public constant NATIVE = address(0);
@@ -29,11 +29,20 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
         bool settled;
         bool won;
         uint8 result;
+
+        // Commit-reveal fields
+        bool isCommitReveal;
+        bytes32 commitment;
+        bool randomFulfilled;
+        uint256 randomWord;
+        uint256 revealDeadline;
     }
 
     IVRFConsumer public vrfConsumer;
     ITreasury public treasury;
     IAchievementNFT public achievementNFT;
+
+    uint256 public revealTimeout = 1 hours;
 
     mapping(uint256 => Bet) public bets;
     mapping(address => uint256[]) public playerRequests;
@@ -44,6 +53,32 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
         address indexed player,
         uint8 guess,
         uint256 stake
+    );
+
+    event DiceRollCommitted(
+        uint256 indexed requestId,
+        uint256 indexed treasuryBetId,
+        address indexed player,
+        bytes32 commitment,
+        uint256 stake,
+        uint256 revealDeadline
+    );
+
+    event DiceRandomnessReady(
+        uint256 indexed requestId,
+        address indexed player,
+        uint256 revealDeadline
+    );
+
+    event DiceRollRevealed(
+        uint256 indexed requestId,
+        address indexed player,
+        uint8 guess
+    );
+
+    event DiceRollForfeited(
+        uint256 indexed requestId,
+        address indexed player
     );
 
     event DiceRollSettled(
@@ -73,7 +108,7 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
     }
 
     /**
-     * @notice Place a dice bet using native ETH.
+     * @notice Simple dice mode. Player directly reveals the guess when placing the bet.
      * @param guess Player's selected number from 1 to 6.
      */
     function rollDice(uint8 guess) external payable nonReentrant returns (uint256 requestId) {
@@ -81,9 +116,7 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
         require(msg.value > 0, "Stake must be greater than zero");
 
         uint256 stake = msg.value;
-
-        uint256 grossPayout = stake * 6;
-        uint256 maxPayout = treasury.quotePayout(grossPayout);
+        uint256 maxPayout = treasury.quotePayout(stake * 6);
 
         uint256 treasuryBetId = treasury.openBet{value: stake}(
             msg.sender,
@@ -102,7 +135,12 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
             treasuryBetId: treasuryBetId,
             settled: false,
             won: false,
-            result: 0
+            result: 0,
+            isCommitReveal: false,
+            commitment: bytes32(0),
+            randomFulfilled: false,
+            randomWord: 0,
+            revealDeadline: 0
         });
 
         playerRequests[msg.sender].push(requestId);
@@ -113,6 +151,130 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
             msg.sender,
             guess,
             stake
+        );
+    }
+
+    /**
+     * @notice Commit-reveal mode step 1.
+     * @dev commitment should be keccak256(abi.encodePacked(player, guess, salt)).
+     *      The guess is hidden until revealRoll().
+     */
+    function commitRoll(bytes32 commitment)
+        external
+        payable
+        nonReentrant
+        returns (uint256 requestId)
+    {
+        require(commitment != bytes32(0), "Invalid commitment");
+        require(msg.value > 0, "Stake must be greater than zero");
+
+        uint256 stake = msg.value;
+        uint256 maxPayout = treasury.quotePayout(stake * 6);
+
+        uint256 treasuryBetId = treasury.openBet{value: stake}(
+            msg.sender,
+            NATIVE,
+            stake,
+            maxPayout
+        );
+
+        requestId = vrfConsumer.requestRandomness(1);
+
+        uint256 revealDeadline = block.timestamp + revealTimeout;
+
+        bets[requestId] = Bet({
+            player: msg.sender,
+            token: NATIVE,
+            stake: stake,
+            guess: 0,
+            treasuryBetId: treasuryBetId,
+            settled: false,
+            won: false,
+            result: 0,
+            isCommitReveal: true,
+            commitment: commitment,
+            randomFulfilled: false,
+            randomWord: 0,
+            revealDeadline: revealDeadline
+        });
+
+        playerRequests[msg.sender].push(requestId);
+
+        emit DiceRollCommitted(
+            requestId,
+            treasuryBetId,
+            msg.sender,
+            commitment,
+            stake,
+            revealDeadline
+        );
+    }
+
+    /**
+     * @notice Commit-reveal mode step 2.
+     * @param requestId The VRF request id returned by commitRoll().
+     * @param guess Player's original guess from 1 to 6.
+     * @param salt Secret salt used to generate the original commitment.
+     */
+    function revealRoll(
+        uint256 requestId,
+        uint8 guess,
+        bytes32 salt
+    ) external nonReentrant {
+        require(guess >= 1 && guess <= 6, "Guess must be between 1 and 6");
+
+        Bet storage bet = bets[requestId];
+
+        require(bet.player != address(0), "Bet does not exist");
+        require(bet.isCommitReveal, "Not commit-reveal bet");
+        require(msg.sender == bet.player, "Only player can reveal");
+        require(!bet.settled, "Bet already settled");
+        require(bet.randomFulfilled, "Randomness not ready");
+        require(block.timestamp <= bet.revealDeadline, "Reveal deadline passed");
+
+        bytes32 computedCommitment = keccak256(
+            abi.encodePacked(msg.sender, guess, salt)
+        );
+
+        require(computedCommitment == bet.commitment, "Invalid reveal");
+
+        bet.guess = guess;
+
+        emit DiceRollRevealed(requestId, msg.sender, guess);
+
+        uint8 result = uint8((bet.randomWord % 6) + 1);
+        _settleBet(requestId, result);
+    }
+
+    /**
+     * @notice If a commit-reveal player refuses to reveal after randomness is ready,
+     *         anyone can forfeit the bet after the reveal deadline.
+     */
+    function forfeitExpiredRoll(uint256 requestId) external nonReentrant {
+        Bet storage bet = bets[requestId];
+
+        require(bet.player != address(0), "Bet does not exist");
+        require(bet.isCommitReveal, "Not commit-reveal bet");
+        require(!bet.settled, "Bet already settled");
+        require(bet.randomFulfilled, "Randomness not ready");
+        require(block.timestamp > bet.revealDeadline, "Reveal period not expired");
+
+        bet.settled = true;
+        bet.won = false;
+        bet.result = 0;
+
+        treasury.settleBet(bet.treasuryBetId, 0);
+
+        emit DiceRollForfeited(requestId, bet.player);
+
+        emit DiceRollSettled(
+            requestId,
+            bet.treasuryBetId,
+            bet.player,
+            bet.guess,
+            0,
+            false,
+            0
         );
     }
 
@@ -131,7 +293,27 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
         require(bet.player != address(0), "Bet does not exist");
         require(!bet.settled, "Bet already settled");
 
-        uint8 result = uint8((randomWords[0] % 6) + 1);
+        if (bet.isCommitReveal) {
+            bet.randomFulfilled = true;
+            bet.randomWord = randomWords[0];
+
+            emit DiceRandomnessReady(
+                requestId,
+                bet.player,
+                bet.revealDeadline
+            );
+        } else {
+            uint8 result = uint8((randomWords[0] % 6) + 1);
+            _settleBet(requestId, result);
+        }
+    }
+
+    function _settleBet(uint256 requestId, uint8 result) internal {
+        Bet storage bet = bets[requestId];
+
+        require(bet.player != address(0), "Bet does not exist");
+        require(!bet.settled, "Bet already settled");
+
         bool won = result == bet.guess;
 
         bet.settled = true;
@@ -141,8 +323,7 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
         uint256 payout = 0;
 
         if (won) {
-            uint256 grossPayout = bet.stake * 6;
-            payout = treasury.quotePayout(grossPayout);
+            payout = treasury.quotePayout(bet.stake * 6);
 
             if (!achievementNFT.hasFirstWinAchievement(bet.player)) {
                 achievementNFT.mintFirstWin(bet.player);
@@ -177,7 +358,23 @@ contract DiceGame is Ownable, ReentrancyGuard, IRandomnessConsumer {
         achievementNFT = IAchievementNFT(_achievementNFT);
     }
 
+    function setRevealTimeout(uint256 _revealTimeout) external onlyOwner {
+        require(_revealTimeout > 0, "Invalid reveal timeout");
+        revealTimeout = _revealTimeout;
+    }
+
     function getPlayerRequests(address player) external view returns (uint256[] memory) {
         return playerRequests[player];
+    }
+
+    /**
+     * @notice Helper for frontend commitment generation reference.
+     */
+    function getCommitmentHash(
+        address player,
+        uint8 guess,
+        bytes32 salt
+    ) external pure returns (bytes32) {
+        return keccak256(abi.encodePacked(player, guess, salt));
     }
 }
