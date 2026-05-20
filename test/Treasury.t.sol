@@ -54,12 +54,13 @@ contract TreasuryTest is Test {
     //////////////////////////////////////////////////////////////*/
 
     function test_Constructor_RevertsOnExcessiveHouseEdge() public {
-        vm.expectRevert(Treasury.Treasury__HouseEdgeTooHigh.selector);
-        new Treasury(address(this), treasury.MAX_HOUSE_EDGE_BPS() + 1);
+        uint16 tooHigh = treasury.MAX_HOUSE_EDGE_BPS() + 1;
+        vm.expectPartialRevert(Treasury.Treasury__HouseEdgeTooHigh.selector);
+        new Treasury(address(this), tooHigh);
     }
 
     function test_SetTokenConfig_RevertsOnBadLimits() public {
-        vm.expectRevert(Treasury.Treasury__InvalidBetLimits.selector);
+        vm.expectPartialRevert(Treasury.Treasury__InvalidBetLimits.selector);
         treasury.setTokenConfig(address(token), true, 10, 5);
     }
 
@@ -104,22 +105,22 @@ contract TreasuryTest is Test {
 
     function test_OpenBet_RevertsForUnauthorizedGame() public {
         vm.prank(stranger);
-        vm.expectRevert(Treasury.Treasury__NotAuthorizedGame.selector);
+        vm.expectPartialRevert(Treasury.Treasury__NotAuthorizedGame.selector);
         treasury.openBet(player, address(token), 100e18, 190e18);
     }
 
     function test_OpenBet_RevertsOnUnsupportedToken() public {
         MockERC20 other = new MockERC20("Other", "OTH", 18);
         vm.prank(game);
-        vm.expectRevert(Treasury.Treasury__TokenNotSupported.selector);
+        vm.expectPartialRevert(Treasury.Treasury__TokenNotSupported.selector);
         treasury.openBet(player, address(other), 100e18, 190e18);
     }
 
     function test_OpenBet_RevertsOnStakeOutOfRange() public {
         vm.startPrank(game);
-        vm.expectRevert(Treasury.Treasury__StakeOutOfRange.selector);
+        vm.expectPartialRevert(Treasury.Treasury__StakeOutOfRange.selector);
         treasury.openBet(player, address(token), ERC20_MIN - 1, 1e18);
-        vm.expectRevert(Treasury.Treasury__StakeOutOfRange.selector);
+        vm.expectPartialRevert(Treasury.Treasury__StakeOutOfRange.selector);
         treasury.openBet(player, address(token), ERC20_MAX + 1, 1e18);
         vm.stopPrank();
     }
@@ -127,7 +128,7 @@ contract TreasuryTest is Test {
     function test_OpenBet_RevertsWhenPayoutExceedsLiquidity() public {
         // House holds 10_000e18; ask to reserve more than is available.
         vm.prank(game);
-        vm.expectRevert(Treasury.Treasury__InsufficientLiquidity.selector);
+        vm.expectPartialRevert(Treasury.Treasury__InsufficientLiquidity.selector);
         treasury.openBet(player, address(token), 100e18, 1_000_000e18);
     }
 
@@ -151,13 +152,13 @@ contract TreasuryTest is Test {
 
     function test_OpenBet_ETH_RevertsOnValueMismatch() public {
         vm.prank(game);
-        vm.expectRevert(Treasury.Treasury__NativeValueMismatch.selector);
+        vm.expectPartialRevert(Treasury.Treasury__NativeValueMismatch.selector);
         treasury.openBet{value: 0.4 ether}(player, NATIVE, 0.5 ether, 0.95 ether);
     }
 
     function test_OpenBet_ERC20_RevertsIfEthSent() public {
         vm.prank(game);
-        vm.expectRevert(Treasury.Treasury__UnexpectedNativeValue.selector);
+        vm.expectPartialRevert(Treasury.Treasury__UnexpectedNativeValue.selector);
         treasury.openBet{value: 1 wei}(player, address(token), 100e18, 190e18);
     }
 
@@ -223,7 +224,7 @@ contract TreasuryTest is Test {
         uint256 betId = treasury.openBet(player, address(token), 100e18, 190e18);
 
         vm.prank(stranger);
-        vm.expectRevert(Treasury.Treasury__NotBetOwner.selector);
+        vm.expectPartialRevert(Treasury.Treasury__NotBetOwner.selector);
         treasury.settleBet(betId, 0);
     }
 
@@ -231,7 +232,7 @@ contract TreasuryTest is Test {
         vm.startPrank(game);
         uint256 betId = treasury.openBet(player, address(token), 100e18, 190e18);
         treasury.settleBet(betId, 0);
-        vm.expectRevert(Treasury.Treasury__BetNotOpen.selector);
+        vm.expectPartialRevert(Treasury.Treasury__BetNotOpen.selector);
         treasury.settleBet(betId, 0);
         vm.stopPrank();
     }
@@ -239,7 +240,7 @@ contract TreasuryTest is Test {
     function test_SettleBet_RevertsIfPayoutExceedsReserved() public {
         vm.startPrank(game);
         uint256 betId = treasury.openBet(player, address(token), 100e18, 190e18);
-        vm.expectRevert(Treasury.Treasury__PayoutExceedsReserved.selector);
+        vm.expectPartialRevert(Treasury.Treasury__PayoutExceedsReserved.selector);
         treasury.settleBet(betId, 190e18 + 1);
         vm.stopPrank();
     }
@@ -257,7 +258,7 @@ contract TreasuryTest is Test {
         // Withdrawing exactly the available amount is fine.
         treasury.withdrawLiquidity(address(token), available);
         // One wei more must revert - locked player exposure is protected.
-        vm.expectRevert(Treasury.Treasury__InsufficientLiquidity.selector);
+        vm.expectPartialRevert(Treasury.Treasury__InsufficientLiquidity.selector);
         treasury.withdrawLiquidity(address(token), 1);
     }
 

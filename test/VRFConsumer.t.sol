@@ -33,7 +33,7 @@ contract VRFConsumerTest is Test {
 
     function test_RequestRandomness_RevertsForUnauthorizedConsumer() public {
         vm.prank(stranger);
-        vm.expectRevert(VRFConsumer.VRFConsumer__NotAuthorized.selector);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__NotAuthorized.selector);
         vrf.requestRandomness(1);
     }
 
@@ -46,7 +46,7 @@ contract VRFConsumerTest is Test {
     function test_RevokedConsumerCannotRequest() public {
         vrf.setConsumerAuthorization(address(game), false);
         vm.prank(address(game));
-        vm.expectRevert(VRFConsumer.VRFConsumer__NotAuthorized.selector);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__NotAuthorized.selector);
         vrf.requestRandomness(1);
     }
 
@@ -65,11 +65,12 @@ contract VRFConsumerTest is Test {
     }
 
     function test_RequestRandomness_RevertsOnInvalidNumWords() public {
+        uint32 tooMany = vrf.MAX_NUM_WORDS() + 1;
         vm.startPrank(address(game));
-        vm.expectRevert(VRFConsumer.VRFConsumer__InvalidNumWords.selector);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__InvalidNumWords.selector);
         vrf.requestRandomness(0);
-        vm.expectRevert(VRFConsumer.VRFConsumer__InvalidNumWords.selector);
-        vrf.requestRandomness(vrf.MAX_NUM_WORDS() + 1);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__InvalidNumWords.selector);
+        vrf.requestRandomness(tooMany);
         vm.stopPrank();
     }
 
@@ -110,7 +111,7 @@ contract VRFConsumerTest is Test {
     function test_Retry_RevertsBeforeTimeout() public {
         uint256 requestId = game.play(1);
         vm.prank(address(game));
-        vm.expectRevert(VRFConsumer.VRFConsumer__RetryTooEarly.selector);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__RetryTooEarly.selector);
         vrf.retryRequest(requestId);
     }
 
@@ -118,7 +119,7 @@ contract VRFConsumerTest is Test {
         uint256 requestId = game.play(1);
         vm.warp(block.timestamp + vrf.requestTimeout() + 1);
         vm.prank(stranger);
-        vm.expectRevert(VRFConsumer.VRFConsumer__NotRequestOwner.selector);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__NotRequestOwner.selector);
         vrf.retryRequest(requestId);
     }
 
@@ -177,7 +178,7 @@ contract VRFConsumerTest is Test {
         coordinator.fulfillWithSeed(requestId, 1);
         vm.warp(block.timestamp + vrf.requestTimeout() + 1);
         vm.prank(address(game));
-        vm.expectRevert(VRFConsumer.VRFConsumer__RequestNotPending.selector);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__RequestNotPending.selector);
         vrf.retryRequest(requestId);
     }
 
@@ -199,7 +200,7 @@ contract VRFConsumerTest is Test {
     }
 
     function test_SetRequestConfirmations_RevertsBelowMinimum() public {
-        vm.expectRevert(VRFConsumer.VRFConsumer__InvalidConfirmations.selector);
+        vm.expectPartialRevert(VRFConsumer.VRFConsumer__InvalidConfirmations.selector);
         vrf.setRequestConfirmations(2);
     }
 
