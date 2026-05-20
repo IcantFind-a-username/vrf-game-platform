@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
+/**
+ * @title AchievementNFT
+ * @notice ERC-721 achievement NFT contract for the Dice Game module.
+ */
 contract AchievementNFT is ERC721, Ownable {
     uint256 private _nextTokenId;
 
@@ -18,7 +22,10 @@ contract AchievementNFT is ERC721, Ownable {
         string achievementType
     );
 
-    constructor() ERC721("Dice Achievement", "DICEACH") {}
+    constructor(address initialOwner)
+        ERC721("Dice Achievement", "DICEACH")
+        Ownable(initialOwner)
+    {}
 
     modifier onlyGameContract() {
         require(msg.sender == gameContract, "Only game contract can mint");
