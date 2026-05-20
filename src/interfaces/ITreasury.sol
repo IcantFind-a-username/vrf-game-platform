@@ -60,4 +60,11 @@ interface ITreasury {
 
     /// @notice The current house edge, expressed in basis points (100 = 1%).
     function houseEdgeBps() external view returns (uint16);
+
+    /**
+     * @notice Deposit funds into the Treasury as house liquidity.
+     * @param  token  ERC-20 address, or `address(0)` for native ETH.
+     * @param  amount Amount to deposit (for ETH must equal `msg.value`).
+     */
+    function depositLiquidity(address token, uint256 amount) external payable;
 }
