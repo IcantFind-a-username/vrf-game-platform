@@ -1,10 +1,13 @@
 # Foundry build artefacts
 out/
 cache/
-broadcast/
+# NOTE: broadcast/ is intentionally tracked so the team and grader can audit
+# the live Sepolia deployment record (broadcast/Deploy.s.sol/11155111/...).
 
 # Dependencies (installed via `forge install`)
 lib/
+.gitmodules
+foundry.lock
 
 # Secrets
 .env
