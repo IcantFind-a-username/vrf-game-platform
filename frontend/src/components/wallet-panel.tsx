@@ -21,7 +21,7 @@ export function WalletPanel() {
   return (
     <section className="panel section-card">
       <div className="section-header">
-        <div>
+        <div className="section-copy">
           <div className="eyebrow">Wallet</div>
           <h2 className="section-title">Connection and identity</h2>
           <p className="section-subtitle">
@@ -29,7 +29,13 @@ export function WalletPanel() {
             bonus.
           </p>
         </div>
-        <ConnectButton />
+        <div className="wallet-connect-slot">
+          {isConnected ? (
+            <span className="mode-badge">Managed in header</span>
+          ) : (
+            <ConnectButton />
+          )}
+        </div>
       </div>
 
       <div className="feature-list">

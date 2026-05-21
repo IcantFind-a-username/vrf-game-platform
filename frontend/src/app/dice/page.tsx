@@ -6,6 +6,8 @@ import { DiceForm } from '@/components/dice-form';
 import { NetworkGuard } from '@/components/network-guard';
 import { WalletPanel } from '@/components/wallet-panel';
 import { useDiceBet } from '@/hooks/useDiceBet';
+import { contractAddresses, diceLiveReady } from '@/lib/addresses';
+import { uiCopy } from '@/lib/config';
 import { formatAddress } from '@/lib/utils/format';
 
 export default function DicePage() {
@@ -15,12 +17,13 @@ export default function DicePage() {
     <>
       <section className="panel hero-card" style={{ marginTop: '1rem' }}>
         <div className="eyebrow">Dice gameplay</div>
-        <h1 className="page-title">VRF-backed Dice with visible settlement states.</h1>
+        <h1 className="page-title">VRF-backed Dice with standard and commit-reveal flows.</h1>
         <p className="page-subtitle">
-          This page is intentionally built around the highest-risk UX path in your project: a user
-          submits a bet, waits through asynchronous randomness fulfillment, and can still understand
-          what is happening.
+          We use this page to demo the most important UX path in the project: place a bet, wait for
+          asynchronous randomness fulfillment, and keep every state understandable. For the formal
+          Sepolia demo, we use the standard `rollDice(uint8 guess)` flow.
         </p>
+        <div className="alert">{uiCopy.infraHint}</div>
         <div className="cta-row">
           <Link className="button-secondary" href="/history">
             Open history proof panel
@@ -41,24 +44,40 @@ export default function DicePage() {
             <h2 className="section-title">Dice integration fields</h2>
             <div className="feature-list">
               <div className="feature-row">
-                <span className="feature-label">Required write</span>
-                <span className="feature-value">rollDice(guess) with native ETH value</span>
+                <span className="feature-label">Standard path</span>
+                <span className="feature-value">rollDice(guess) with native ETH value on Sepolia</span>
               </div>
               <div className="feature-row">
-                <span className="feature-label">Required event</span>
+                <span className="feature-label">Commit-reveal path</span>
                 <span className="feature-value">
-                  DiceRollRequested(requestId, treasuryBetId, player, guess, stake)
+                  Optional advanced flow: commitRoll(commitment) {'->'} revealRoll(requestId, guess, salt)
                 </span>
               </div>
               <div className="feature-row">
-                <span className="feature-label">Settlement event</span>
+                <span className="feature-label">Core events</span>
                 <span className="feature-value">
-                  DiceRollSettled(requestId, treasuryBetId, player, guess, result, won, payout)
+                  DiceRollRequested / DiceRollCommitted / DiceRandomnessReady / DiceRollSettled
                 </span>
               </div>
               <div className="feature-row">
                 <span className="feature-label">Raw randomness</span>
                 <span className="feature-value">Read via VRFConsumer.getRandomWords(requestId)</span>
+              </div>
+              <div className="feature-row">
+                <span className="feature-label">Commit helper</span>
+                <span className="feature-value">getCommitmentHash(player, guess, salt)</span>
+              </div>
+              <div className="feature-row">
+                <span className="feature-label">Achievement signal</span>
+                <span className="feature-value">AchievementMinted(player, tokenId, "FIRST_WIN")</span>
+              </div>
+              <div className="feature-row">
+                <span className="feature-label">Dice live status</span>
+                <span className="feature-value">
+                  {diceLiveReady
+                    ? `Configured at ${formatAddress(contractAddresses.diceGame ?? '0x', 6)}`
+                    : 'Waiting for DiceGame + Achievement addresses'}
+                </span>
               </div>
             </div>
 

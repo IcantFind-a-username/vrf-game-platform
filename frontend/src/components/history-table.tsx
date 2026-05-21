@@ -1,6 +1,6 @@
 'use client';
 
-import { formatAddress, formatAmount, formatDateTime } from '@/lib/utils/format';
+import { formatAmount, formatCompactValue, formatDateTime } from '@/lib/utils/format';
 import type { HistoryRecord } from '@/types/game';
 
 export function HistoryTable({
@@ -17,7 +17,8 @@ export function HistoryTable({
       <div className="empty-state">
         <strong>No records yet</strong>
         <div className="helper-text">
-          Run a Dice or Lottery flow first. History is persisted locally in mock mode.
+          Run a Dice or Lottery flow first. This table reads from local mock storage or the live
+          Dice cache captured by this browser session.
         </div>
       </div>
     );
@@ -41,11 +42,17 @@ export function HistoryTable({
             data-active={record.id === selectedId}
             onClick={() => onSelect(record.id)}
           >
-            <td>{record.kind === 'dice' ? 'Dice' : `Lottery ${record.roundId}`}</td>
-            <td className="mono">{formatAddress(record.requestId, 6)}</td>
             <td>
               {record.kind === 'dice'
-                ? `${record.prediction} → ${record.outcome} · ${formatAmount(record.payout, record.tokenSymbol)}`
+                ? record.mode === 'commit_reveal'
+                  ? 'Dice (CR)'
+                  : 'Dice'
+                : `Lottery ${record.roundId}`}
+            </td>
+            <td className="mono">{formatCompactValue(record.requestId, 6)}</td>
+            <td>
+              {record.kind === 'dice'
+                ? `${record.prediction} → ${record.outcome === 0 ? 'forfeit' : record.outcome} · ${formatAmount(record.payout, record.tokenSymbol)}`
                 : `${record.participantCount} players · ${formatAmount(record.prizePool, record.tokenSymbol)}`}
             </td>
             <td>{formatDateTime(record.updatedAt)}</td>

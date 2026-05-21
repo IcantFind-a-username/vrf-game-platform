@@ -5,13 +5,11 @@ import { readStorage, removeStorage, writeStorage } from '@/lib/utils/storage';
 import type {
   DiceBetInput,
   DiceBetRecord,
-  HistoryRecord,
   LotteryEntryInput,
   LotteryHistoryRecord,
   LotteryRoundState,
   PendingDiceBetRecord,
   StoredLotteryRoundState,
-  SupportedToken,
 } from '@/types/game';
 
 const STORAGE_KEYS = {
@@ -45,10 +43,6 @@ function now() {
   return Date.now();
 }
 
-function findToken(symbol: string): SupportedToken {
-  return demoTokens.find((token) => token.symbol === symbol) ?? demoTokens[0];
-}
-
 function computeDicePayout(amount: number, won: boolean) {
   if (!won) {
     return '0.00';
@@ -76,6 +70,9 @@ function createBaseLotteryRound(previousRoundId?: string): StoredLotteryRoundSta
     participantCount: seedParticipants,
     closesAt: now() + 1000 * 60 * 18,
     userEntries: 0,
+    statusLabel: 'Open',
+    canClaimPrize: false,
+    userIsWinner: false,
     entrants,
   };
 }
@@ -84,7 +81,15 @@ function readLotteryState(): StoredLotteryRoundState {
   const stored = readStorage<StoredLotteryRoundState | null>(STORAGE_KEYS.lotteryState, null);
 
   if (stored) {
-    return stored;
+    const normalized: StoredLotteryRoundState = {
+      ...stored,
+      statusLabel: stored.statusLabel ?? 'Open',
+      canClaimPrize: stored.canClaimPrize ?? false,
+      userIsWinner: stored.userIsWinner ?? false,
+    };
+
+    writeStorage(STORAGE_KEYS.lotteryState, normalized);
+    return normalized;
   }
 
   const fresh = createBaseLotteryRound();
@@ -116,20 +121,54 @@ export function getPendingDiceBet() {
   return readStorage<PendingDiceBetRecord | null>(STORAGE_KEYS.dicePending, null);
 }
 
+function hasAnyMockWin() {
+  return getDiceHistory().some((record) => Number(record.payout) > 0);
+}
+
+function savePendingDiceBet(record: PendingDiceBetRecord) {
+  writeStorage(STORAGE_KEYS.dicePending, record);
+}
+
+function finalizeDiceBet(
+  pending: PendingDiceBetRecord,
+  overrides?: Partial<DiceBetRecord>,
+): DiceBetRecord {
+  const isWin = overrides?.payout ? Number(overrides.payout) > 0 : Number(pending.payout) > 0;
+  const shouldMintAchievement = isWin && !hasAnyMockWin();
+
+  return {
+    ...pending,
+    stage: 'settled',
+    updatedAt: now(),
+    achievementMinted: shouldMintAchievement,
+    wasForfeited: overrides?.wasForfeited ?? pending.wasForfeited,
+    note:
+      overrides?.note ??
+      (shouldMintAchievement
+        ? 'First win achieved. Achievement NFT would mint on the live contract.'
+        : pending.note),
+    ...overrides,
+  };
+}
+
 export function createPendingDiceBet(input: DiceBetInput): PendingDiceBetRecord {
   const amount = Number(input.amount);
   const outcome = Math.floor(Math.random() * 6) + 1;
   const won = outcome === input.prediction;
+  const isCommitReveal = input.mode === 'commit_reveal';
+  const revealDeadline = isCommitReveal ? now() + 1000 * 60 * 5 : undefined;
 
   const record: PendingDiceBetRecord = {
     id: `dice-${crypto.randomUUID()}`,
     kind: 'dice',
+    mode: input.mode,
     tokenSymbol: input.tokenSymbol,
     amount: amount.toFixed(2),
     prediction: input.prediction,
     outcome,
     payout: computeDicePayout(amount, won),
     requestId: randomHash(),
+    treasuryBetId: randomHash(),
     txHash: randomHash(),
     settleTxHash: randomHash(),
     randomWord: randomWord(),
@@ -138,11 +177,49 @@ export function createPendingDiceBet(input: DiceBetInput): PendingDiceBetRecord 
     updatedAt: now(),
     resolveAt: now() + 4200,
     commitment: input.commitment ?? randomHash(),
-    note: won ? 'Prediction matched. Settlement will credit payout.' : 'House wins this roll.',
+    salt: input.salt,
+    revealDeadline,
+    achievementMinted: false,
+    wasForfeited: false,
+    note: isCommitReveal
+      ? 'Commit submitted. Wait for randomness, then reveal the original guess to settle.'
+      : won
+        ? 'Prediction matched. Settlement will credit payout.'
+        : 'House wins this roll.',
   };
 
-  writeStorage(STORAGE_KEYS.dicePending, record);
+  savePendingDiceBet(record);
   return record;
+}
+
+export function syncPendingDiceBet() {
+  const pending = getPendingDiceBet();
+
+  if (!pending) {
+    return null;
+  }
+
+  if (pending.stage !== 'vrf_pending' || pending.resolveAt > now()) {
+    return pending;
+  }
+
+  if (pending.mode === 'commit_reveal') {
+    const revealReady: PendingDiceBetRecord = {
+      ...pending,
+      stage: 'reveal_pending',
+      updatedAt: now(),
+      note: 'Randomness is ready. Submit the reveal transaction before the deadline.',
+    };
+
+    savePendingDiceBet(revealReady);
+    return revealReady;
+  }
+
+  const settled = finalizeDiceBet(pending);
+  const history = getDiceHistory();
+  writeStorage(STORAGE_KEYS.diceHistory, [settled, ...history]);
+  removeStorage(STORAGE_KEYS.dicePending);
+  return settled;
 }
 
 export function settlePendingDiceBet(id: string) {
@@ -152,11 +229,65 @@ export function settlePendingDiceBet(id: string) {
     return null;
   }
 
-  const settled: DiceBetRecord = {
-    ...pending,
-    stage: 'settled',
-    updatedAt: now(),
-  };
+  const syncedPending = syncPendingDiceBet();
+
+  if (!syncedPending || syncedPending.id !== id) {
+    return null;
+  }
+
+  if (syncedPending.stage !== 'vrf_pending') {
+    return syncedPending.stage === 'settled' ? syncedPending : null;
+  }
+
+  const settled = finalizeDiceBet(syncedPending);
+
+  const history = getDiceHistory();
+  writeStorage(STORAGE_KEYS.diceHistory, [settled, ...history]);
+  removeStorage(STORAGE_KEYS.dicePending);
+  return settled;
+}
+
+export function revealPendingDiceBet(id: string) {
+  const pending = syncPendingDiceBet();
+
+  if (!pending || pending.id !== id || pending.stage !== 'reveal_pending') {
+    return null;
+  }
+
+  if (pending.revealDeadline && pending.revealDeadline < now()) {
+    return null;
+  }
+
+  const settled = finalizeDiceBet(pending, {
+    note:
+      Number(pending.payout) > 0
+        ? 'Reveal confirmed. Dice outcome settled and payout released.'
+        : 'Reveal confirmed. The dice resolved against the player.',
+  });
+
+  const history = getDiceHistory();
+  writeStorage(STORAGE_KEYS.diceHistory, [settled, ...history]);
+  removeStorage(STORAGE_KEYS.dicePending);
+  return settled;
+}
+
+export function forfeitPendingDiceBet(id: string) {
+  const pending = syncPendingDiceBet();
+
+  if (!pending || pending.id !== id || pending.stage !== 'reveal_pending') {
+    return null;
+  }
+
+  if (!pending.revealDeadline || pending.revealDeadline > now()) {
+    return null;
+  }
+
+  const settled = finalizeDiceBet(pending, {
+    outcome: 0,
+    payout: '0.00',
+    wasForfeited: true,
+    note: 'Reveal window expired. The bet was forfeited and settled as a loss.',
+  });
 
   const history = getDiceHistory();
   writeStorage(STORAGE_KEYS.diceHistory, [settled, ...history]);
@@ -228,6 +359,18 @@ export function syncLotteryRound() {
   writeLotteryState(nextRound);
 
   return nextRound;
+}
+
+export function fastForwardLotteryRound() {
+  const currentState = readLotteryState();
+  const expiredRound: StoredLotteryRoundState = {
+    ...currentState,
+    closesAt: now() - 1000,
+    statusLabel: 'Closed',
+  };
+
+  writeLotteryState(expiredRound);
+  return syncLotteryRound();
 }
 
 export function resetMockData() {
