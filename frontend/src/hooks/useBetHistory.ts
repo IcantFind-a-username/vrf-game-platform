@@ -4,7 +4,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 
 import { appMode } from '@/lib/config';
 import { getCombinedHistory, resetMockData } from '@/services/mock';
-import { liveIntegrationMessage } from '@/services/live';
+import { getLiveCombinedHistory, liveHistoryMessage, resetLiveData } from '@/services/live';
 import type { HistoryRecord } from '@/types/game';
 
 export function useBetHistory() {
@@ -16,12 +16,8 @@ export function useBetHistory() {
   const deferredQuery = useDeferredValue(query);
 
   useEffect(() => {
-    if (appMode === 'live') {
-      return;
-    }
-
     const refresh = () => {
-      const nextHistory = getCombinedHistory();
+      const nextHistory = appMode === 'live' ? getLiveCombinedHistory() : getCombinedHistory();
       setHistory(nextHistory);
       setSelectedId((currentSelectedId) => currentSelectedId ?? nextHistory[0]?.id ?? null);
     };
@@ -52,7 +48,7 @@ export function useBetHistory() {
 
       const haystack =
         record.kind === 'dice'
-          ? `${record.requestId} ${record.txHash} ${record.tokenSymbol}`
+          ? `${record.requestId} ${record.txHash} ${record.tokenSymbol} ${record.mode}`
           : `${record.requestId} ${record.txHash} ${record.roundId} ${record.winner}`;
 
       return haystack.toLowerCase().includes(search);
@@ -73,11 +69,15 @@ export function useBetHistory() {
     kindFilter,
     setKindFilter,
     resetHistory: () => {
-      resetMockData();
+      if (appMode === 'live') {
+        resetLiveData();
+      } else {
+        resetMockData();
+      }
       setHistory([]);
       setSelectedId(null);
     },
     liveMode: appMode === 'live',
-    liveMessage: liveIntegrationMessage,
+    liveMessage: appMode === 'live' ? liveHistoryMessage : null,
   };
 }

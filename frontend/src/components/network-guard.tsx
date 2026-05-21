@@ -1,7 +1,8 @@
 'use client';
 
 import { useAccount, useSwitchChain } from 'wagmi';
-import { sepolia } from 'wagmi/chains';
+
+import { appConfig } from '@/lib/config';
 
 export function NetworkGuard() {
   const { isConnected, chainId } = useAccount();
@@ -20,11 +21,11 @@ export function NetworkGuard() {
     );
   }
 
-  if (chainId === sepolia.id) {
+  if (chainId === appConfig.targetChainId) {
     return (
       <div className="network-guard">
         <div>
-          <strong>Sepolia ready</strong>
+          <strong>{appConfig.targetChainName} ready</strong>
           <div className="helper-text">
             Wallet is on the target chain for Dice and Lottery interactions.
           </div>
@@ -45,10 +46,10 @@ export function NetworkGuard() {
       <button
         className="button-secondary"
         disabled={isPending}
-        onClick={() => switchChain({ chainId: sepolia.id })}
+        onClick={() => switchChain({ chainId: appConfig.targetChainId })}
         type="button"
       >
-        {isPending ? 'Switching...' : 'Switch to Sepolia'}
+        {isPending ? 'Switching...' : `Switch to ${appConfig.targetChainName}`}
       </button>
     </div>
   );

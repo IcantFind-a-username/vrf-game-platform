@@ -260,6 +260,20 @@ select {
   gap: 1rem;
 }
 
+.section-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.wallet-connect-slot {
+  flex-shrink: 0;
+}
+
+.wallet-connect-slot button {
+  min-width: 8rem;
+  white-space: nowrap;
+}
+
 .row-between {
   align-items: center;
 }
@@ -302,6 +316,20 @@ select {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+}
+
+.inline-actions {
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.inline-actions > * {
+  flex-shrink: 0;
+}
+
+.inline-actions button {
+  min-width: 8rem;
+  white-space: nowrap;
 }
 
 .cta-row {
@@ -397,6 +425,7 @@ select {
 }
 
 .status-pill[data-state='vrf_pending'],
+.status-pill[data-state='reveal_pending'],
 .status-pill[data-state='tx_pending'],
 .status-pill[data-state='wallet_confirming'] {
   color: var(--warning);

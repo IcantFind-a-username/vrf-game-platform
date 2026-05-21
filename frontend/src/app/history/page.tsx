@@ -13,8 +13,8 @@ export default function HistoryPage() {
         <div className="eyebrow">Verification surface</div>
         <h1 className="page-title">History and proof trace for every randomness-driven outcome.</h1>
         <p className="page-subtitle">
-          This is the page you should open when the marker asks, “How do users know the result was
-          fair?” It connects request IDs, tx hashes, raw random output, and final outcome.
+          We use this page when explaining how users can verify fairness. It connects request IDs,
+          tx hashes, raw random output, and final outcomes in one place.
         </p>
       </section>
 
@@ -22,16 +22,17 @@ export default function HistoryPage() {
 
       <section className="panel section-card" style={{ marginTop: '1rem' }}>
         <div className="section-header">
-          <div>
-            <div className="eyebrow">Filters</div>
-            <h2 className="section-title">Search stored records</h2>
-            <p className="section-subtitle">
-              Filter by request ID, tx hash, round ID, or game type. Mock mode stores data locally so
-              the page remains useful even before Solidity integration is done.
-            </p>
-          </div>
+            <div>
+              <div className="eyebrow">Filters</div>
+              <h2 className="section-title">Search stored records</h2>
+              <p className="section-subtitle">
+                We can filter by request ID, tx hash, round ID, or game type. Mock mode stores
+                generated local data; live mode stores the Dice settlements this browser has already
+                observed on Sepolia.
+              </p>
+            </div>
           <button className="button-ghost" onClick={history.resetHistory} type="button">
-            Reset mock data
+            Reset local cache
           </button>
         </div>
 
@@ -78,8 +79,8 @@ export default function HistoryPage() {
           <div className="eyebrow">Proof panel</div>
           <h2 className="section-title">Selected record</h2>
           <p className="section-subtitle">
-            Show this panel during the presentation when explaining how the front end exposes
-            randomness evidence to users.
+            We use this panel during the presentation to show how the frontend exposes randomness
+            evidence to users.
           </p>
           <div style={{ marginTop: '1rem' }}>
             <ProofPanel record={history.selectedRecord} />

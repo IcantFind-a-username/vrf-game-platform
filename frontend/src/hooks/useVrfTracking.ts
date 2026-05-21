@@ -2,32 +2,37 @@
 
 import { useMemo } from 'react';
 
-import type { FlowStage } from '@/types/game';
+import type { DiceMode, FlowStage } from '@/types/game';
 
-const STEP_ORDER = [
-  { key: 'wallet_confirming', label: 'Wallet signature' },
-  { key: 'tx_pending', label: 'Transaction inclusion' },
-  { key: 'vrf_pending', label: 'VRF callback pending' },
-  { key: 'settled', label: 'Settlement completed' },
-] as const;
-
-const RANK: Record<FlowStage, number> = {
-  idle: 0,
-  wallet_confirming: 1,
-  tx_pending: 2,
-  vrf_pending: 3,
-  settled: 4,
-  failed: 0,
-};
-
-export function useVrfTracking(stage: FlowStage) {
+export function useVrfTracking(stage: FlowStage, mode: DiceMode) {
   return useMemo(
-    () =>
-      STEP_ORDER.map((step, index) => ({
+    () => {
+      const steps =
+        mode === 'commit_reveal'
+          ? [
+              { key: 'wallet_confirming', label: 'Wallet signature' },
+              { key: 'tx_pending', label: 'Commit transaction included' },
+              { key: 'vrf_pending', label: 'VRF callback pending' },
+              { key: 'reveal_pending', label: 'Reveal required' },
+              { key: 'settled', label: 'Settlement completed' },
+            ]
+          : [
+              { key: 'wallet_confirming', label: 'Wallet signature' },
+              { key: 'tx_pending', label: 'Transaction inclusion' },
+              { key: 'vrf_pending', label: 'VRF callback pending' },
+              { key: 'settled', label: 'Settlement completed' },
+            ];
+
+      const currentIndex = steps.findIndex((step) => step.key === stage);
+
+      return steps.map((step, index) => ({
         ...step,
-        active: stage !== 'failed' && RANK[stage] === index + 1,
-        complete: stage !== 'failed' && RANK[stage] > index + 1,
-      })),
-    [stage],
+        active: stage !== 'failed' && stage !== 'settled' && currentIndex === index,
+        complete:
+          stage !== 'failed' &&
+          (stage === 'settled' ? currentIndex >= index : currentIndex > index),
+      }));
+    },
+    [mode, stage],
   );
 }

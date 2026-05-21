@@ -6,23 +6,36 @@ import { useEffect, useState } from 'react';
 import { NetworkGuard } from '@/components/network-guard';
 import { StatChip } from '@/components/stat-chip';
 import { WalletPanel } from '@/components/wallet-panel';
-import { appConfig, appMode } from '@/lib/config';
+import { diceLiveReady, infrastructureReady, lotteryLiveReady } from '@/lib/addresses';
+import { appConfig, appMode, uiCopy } from '@/lib/config';
 import { getPlatformSnapshot } from '@/services/mock';
+import { getLiveCombinedHistory } from '@/services/live';
 
 export default function OverviewPage() {
   const [snapshot, setSnapshot] = useState({
     totalSettlements: 0,
     latestDicePayout: '0.00',
     latestRequestId: 'Not settled yet',
-    activeTokens: 'ETH, USDC, LINK',
+    activeTokens: 'ETH',
   });
 
   useEffect(() => {
-    if (appMode !== 'mock') {
-      return;
-    }
+    const refresh = () => {
+      if (appMode === 'live') {
+        const liveHistory = getLiveCombinedHistory();
+        const latestDice = liveHistory.find((record) => record.kind === 'dice');
 
-    const refresh = () => setSnapshot(getPlatformSnapshot());
+        setSnapshot({
+          totalSettlements: liveHistory.length,
+          latestDicePayout: latestDice?.kind === 'dice' ? latestDice.payout : '0.00',
+          latestRequestId: latestDice?.requestId ?? 'No live settlement yet',
+          activeTokens: 'ETH',
+        });
+        return;
+      }
+
+      setSnapshot(getPlatformSnapshot());
+    };
 
     refresh();
     const interval = window.setInterval(refresh, 1500);
@@ -33,12 +46,12 @@ export default function OverviewPage() {
     <>
       <div className="hero-grid">
         <section className="panel hero-card">
-          <div className="eyebrow">Frontend owner workspace</div>
-          <h1 className="hero-title">Build the flow the marker can actually verify.</h1>
+          <div className="eyebrow">Frontend showcase</div>
+          <h1 className="hero-title">We built this frontend around the flow the marker can verify.</h1>
           <p className="hero-copy">
-            {appConfig.description} This frontend is optimized around the demo-critical path:
-            wallet connection, bet or lottery entry, visible pending states, and transparent proof
-            of outcome.
+            {appConfig.description} We designed the frontend around the full demo path: connect a
+            wallet, place a bet or enter the lottery, wait for VRF, and then inspect the proof of
+            the final outcome.
           </p>
 
           <div className="stat-grid">
@@ -77,6 +90,12 @@ export default function OverviewPage() {
               <span className="feature-value">Request ID, tx links, random word</span>
             </div>
             <div className="feature-row">
+              <span className="feature-label">Live infra status</span>
+              <span className="feature-value">
+                {infrastructureReady ? 'VRFConsumer + Treasury configured' : 'Waiting for infra addresses'}
+              </span>
+            </div>
+            <div className="feature-row">
               <span className="feature-label">Bonus surface</span>
               <span className="feature-value">ENS lookup included</span>
             </div>
@@ -91,9 +110,10 @@ export default function OverviewPage() {
           <div className="eyebrow">Snapshot</div>
           <h2 className="section-title">Live dashboard metrics</h2>
           <p className="section-subtitle">
-            In mock mode these values update from local history. In live mode this same section is
-            where on-chain event queries should feed your analytics cards.
+            In mock mode we use generated local history to test the UI. In live mode this section
+            reflects the Dice settlements that this browser session has already observed on Sepolia.
           </p>
+          <div className="alert">{uiCopy.infraHint}</div>
           <div className="stat-grid">
             <StatChip label="Settlements" value={String(snapshot.totalSettlements)} />
             <StatChip label="Latest payout" value={snapshot.latestDicePayout} />
@@ -103,19 +123,37 @@ export default function OverviewPage() {
 
         <section className="panel section-card">
           <div className="eyebrow">Integration</div>
-          <h2 className="section-title">What you still need from the Solidity team</h2>
+          <h2 className="section-title">What still blocks full live coverage</h2>
           <div className="feature-list">
             <div className="feature-row">
-              <span className="feature-label">Dice ABI</span>
-              <span className="feature-value">Bet function + settle event</span>
+              <span className="feature-label">Infrastructure</span>
+              <span className="feature-value">Deployed and verified on Sepolia</span>
             </div>
             <div className="feature-row">
-              <span className="feature-label">Lottery ABI</span>
-              <span className="feature-value">Entry function + draw event</span>
+              <span className="feature-label">Dice deployment</span>
+              <span className="feature-value">
+                {diceLiveReady ? 'DiceGame + AchievementNFT configured for live Dice' : 'Waiting for Dice stack handoff'}
+              </span>
             </div>
             <div className="feature-row">
-              <span className="feature-label">Treasury reads</span>
-              <span className="feature-value">min/max bet + supported tokens</span>
+              <span className="feature-label">Lottery deployment</span>
+              <span className="feature-value">
+                {lotteryLiveReady
+                  ? 'Lottery + Referral configured for live round reads and entry'
+                  : 'Need Lottery + Referral addresses and final ABI exports'}
+              </span>
+            </div>
+            <div className="feature-row">
+              <span className="feature-label">Authorization</span>
+              <span className="feature-value">
+                Dice authorization confirmed true; Lottery authorization now depends on the deployed round lifecycle only
+              </span>
+            </div>
+            <div className="feature-row">
+              <span className="feature-label">Remaining polish</span>
+              <span className="feature-value">
+                ERC-20 approval UX, referral claim write flow, and richer Lottery claim/refund actions
+              </span>
             </div>
           </div>
         </section>

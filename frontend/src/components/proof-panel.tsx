@@ -69,9 +69,31 @@ export function ProofPanel({ record }: { record: HistoryRecord | null }) {
           <strong>Dice derivation</strong>
           <div className="split-info">
             <div className="split-row">
-              <span className="split-label">Commitment</span>
-              <span className="split-value">{record.commitment}</span>
+              <span className="split-label">Mode</span>
+              <span className="split-value">
+                {record.mode === 'commit_reveal' ? 'Commit-reveal' : 'Standard'}
+              </span>
             </div>
+            <div className="split-row">
+              <span className="split-label">Treasury bet ID</span>
+              <span className="split-value">{record.treasuryBetId}</span>
+            </div>
+            {record.mode === 'commit_reveal' ? (
+              <>
+                <div className="split-row">
+                  <span className="split-label">Commitment</span>
+                  <span className="split-value">{record.commitment}</span>
+                </div>
+                <div className="split-row">
+                  <span className="split-label">Reveal window</span>
+                  <span className="split-value">
+                    {record.revealDeadline
+                      ? `${formatDateTime(record.revealDeadline)}`
+                      : 'No reveal window'}
+                  </span>
+                </div>
+              </>
+            ) : null}
             <div className="split-row">
               <span className="split-label">Result formula</span>
               <span className="split-value">randomWord % 6 + 1</span>
@@ -79,13 +101,23 @@ export function ProofPanel({ record }: { record: HistoryRecord | null }) {
             <div className="split-row">
               <span className="split-label">Prediction → outcome</span>
               <span className="split-value">
-                {record.prediction} → {record.outcome}
+                {record.prediction} → {record.outcome === 0 ? 'Forfeited' : record.outcome}
               </span>
             </div>
             <div className="split-row">
               <span className="split-label">Payout</span>
               <span className="split-value">
                 {formatAmount(record.payout, record.tokenSymbol)}
+              </span>
+            </div>
+            <div className="split-row">
+              <span className="split-label">Settlement note</span>
+              <span className="split-value">
+                {record.wasForfeited
+                  ? 'Player missed the reveal window and the bet was forfeited.'
+                  : record.achievementMinted
+                    ? 'First-win achievement would be minted in live mode.'
+                    : record.note ?? 'Standard payout flow.'}
               </span>
             </div>
           </div>
@@ -118,6 +150,16 @@ export function ProofPanel({ record }: { record: HistoryRecord | null }) {
             <div className="split-row">
               <span className="split-label">Participants</span>
               <span className="split-value">{record.participantCount}</span>
+            </div>
+            <div className="split-row">
+              <span className="split-label">Winner count</span>
+              <span className="split-value">{record.winnerCount ?? 1}</span>
+            </div>
+            <div className="split-row">
+              <span className="split-label">Claim status</span>
+              <span className="split-value">
+                {record.claimable ? 'Prizes claimable' : 'Claim state not open yet'}
+              </span>
             </div>
           </div>
         </div>

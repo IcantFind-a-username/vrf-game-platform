@@ -1,10 +1,10 @@
 'use client';
 
 import { useVrfTracking } from '@/hooks/useVrfTracking';
-import type { FlowStage } from '@/types/game';
+import type { DiceMode, FlowStage } from '@/types/game';
 
-export function VrfProgress({ stage }: { stage: FlowStage }) {
-  const steps = useVrfTracking(stage);
+export function VrfProgress({ stage, mode }: { stage: FlowStage; mode: DiceMode }) {
+  const steps = useVrfTracking(stage, mode);
 
   return (
     <div className="progress-list">
