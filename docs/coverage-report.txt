@@ -1,0 +1,251 @@
+Warning: `--ir-minimum` enables `viaIR` with minimum optimization, which can result in inaccurate source mappings.
+Only use this flag as a workaround if you are experiencing "stack too deep" errors.
+Note that `viaIR` is production ready since Solidity 0.8.13 and above.
+See more: https://book.getfoundry.sh/guides/best-practices/stack-too-deep
+Compiling 82 files with Solc 0.8.24
+Solc 0.8.24 finished in 12.15s
+Compiler run successful with warnings:
+Warning (2018): Function state mutability can be restricted to view
+   --> test/integration/EndToEnd.t.sol:167:5:
+    |
+167 |     function _assertStatus(uint256 roundId, Lottery.RoundStatus expected) internal {
+    |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Analysing contracts...
+Running tests...
+
+Ran 7 tests for test/AchievementNFT.t.sol:AchievementNFTTest
+[PASS] test_mintFirstWin() (gas: 157988)
+[PASS] test_mintFirstWin_revertsDuplicateAchievement() (gas: 153403)
+[PASS] test_mintFirstWin_revertsIfNotGameContract() (gas: 47884)
+[PASS] test_mintFirstWin_revertsInvalidPlayer() (gas: 43799)
+[PASS] test_onlyOwnerCanSetGameContract() (gas: 18287)
+[PASS] test_setGameContract() (gas: 38534)
+[PASS] test_setGameContract_revertsZeroAddress() (gas: 14111)
+Suite result: ok. 7 passed; 0 failed; 0 skipped; finished in 2.55ms (1.71ms CPU time)
+
+Ran 5 tests for test/DiceGame.t.sol:DiceGameTest
+[PASS] test_commitReveal_revertsInvalidReveal() (gas: 564074)
+[PASS] test_commitReveal_winningFlow() (gas: 715551)
+[PASS] test_rollDice_createsRequest() (gas: 410035)
+[PASS] test_rollDice_losingBet_doesNotMintNFT() (gas: 491256)
+[PASS] test_rollDice_winningBet_mintsFirstWinNFT() (gas: 614682)
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 3.25ms (2.12ms CPU time)
+
+Ran 20 tests for test/Referral.t.sol:ReferralTest
+[PASS] test_claimCommission() (gas: 214377)
+[PASS] test_claimCommission_multiplePurchases() (gas: 223377)
+[PASS] test_claimCommission_reverts_noPending() (gas: 23858)
+[PASS] test_constructor() (gas: 16449)
+[PASS] test_recordTicketPurchase() (gas: 197676)
+[PASS] test_recordTicketPurchase_reverts_notLottery() (gas: 72618)
+[PASS] test_recordTicketPurchase_secondReferralIgnored() (gas: 250637)
+[PASS] test_recordTicketPurchase_selfReferral_returnsZero() (gas: 107975)
+[PASS] test_recordTicketPurchase_zeroCode_returnsZero() (gas: 49209)
+[PASS] test_registerReferral() (gas: 71526)
+[PASS] test_registerReferral_reverts_duplicateCode() (gas: 69457)
+[PASS] test_registerReferral_reverts_duplicateRegistrant() (gas: 68775)
+[PASS] test_registerReferral_reverts_emptyCode() (gas: 15110)
+[PASS] test_setCommissionBps() (gas: 25786)
+[PASS] test_setCommissionBps_reverts_tooHigh() (gas: 17591)
+[PASS] test_setLottery() (gas: 44711)
+[PASS] test_setLottery_reverts_nonOwner() (gas: 19530)
+[PASS] test_view_getPendingCommission() (gas: 188950)
+[PASS] test_view_getReferralCode() (gas: 65619)
+[PASS] test_view_getReferrer() (gas: 70855)
+Suite result: ok. 20 passed; 0 failed; 0 skipped; finished in 5.06ms (4.20ms CPU time)
+
+Ran 10 tests for test/integration/EndToEnd.t.sol:EndToEndTest
+[PASS] test_E2E_CrossGame_SamePlayer_DiceAndLottery() (gas: 1393539)
+[PASS] test_E2E_Dice_CommitReveal_Forfeit() (gas: 705836)
+[PASS] test_E2E_Dice_CommitReveal_Win() (gas: 880481)
+[PASS] test_E2E_Dice_Loss_StakeRetained_NoNFT() (gas: 635655)
+[PASS] test_E2E_Dice_Win_MintsFirstWinNFT_AndPaysOut() (gas: 781747)
+[PASS] test_E2E_Lottery_Cancel_Refund() (gas: 463127)
+[PASS] test_E2E_Lottery_FullLifecycle_SingleWinner() (gas: 1117810)
+[PASS] test_E2E_Lottery_Referral_CommissionEarnedAndClaimed() (gas: 577647)
+[PASS] test_E2E_Solvency_ManyConcurrentBets() (gas: 5313832)
+[PASS] test_E2E_VRF_RetryAfterTimeout_Lottery() (gas: 917297)
+Suite result: ok. 10 passed; 0 failed; 0 skipped; finished in 76.46ms (14.13ms CPU time)
+
+Ran 18 tests for test/VRFConsumer.t.sol:VRFConsumerTest
+[PASS] testFuzz_IsRetryableTracksTimeout(uint256) (runs: 256, μ: 188569, ~: 189398)
+[PASS] testFuzz_RequestAndFulfilAnyValidWordCount(uint32,uint256) (runs: 256, μ: 529585, ~: 552450)
+[PASS] test_ConfigUpdatesPersist() (gas: 52392)
+[PASS] test_Fulfilment_ContainsRevertingGame() (gas: 278441)
+[PASS] test_Fulfilment_ForwardsWordsToGame() (gas: 415543)
+[PASS] test_LateFulfilmentOfRetriedRequest_DoesNotDoubleDeliver() (gas: 517583)
+[PASS] test_OnlyOwnerCanUpdateConfig() (gas: 33138)
+[PASS] test_RequestRandomness_CreatesPendingRequest() (gas: 183570)
+[PASS] test_RequestRandomness_RevertsForUnauthorizedConsumer() (gas: 17077)
+[PASS] test_RequestRandomness_RevertsOnInvalidNumWords() (gas: 25615)
+[PASS] test_Retry_AfterTimeoutSucceeds() (gas: 506763)
+[PASS] test_Retry_OwnerCanRetry() (gas: 321420)
+[PASS] test_Retry_RevertsBeforeTimeout() (gas: 186008)
+[PASS] test_Retry_RevertsForNonOwnerNonConsumer() (gas: 192200)
+[PASS] test_Retry_RevertsIfRequestAlreadyFulfilled() (gas: 318342)
+[PASS] test_RevokedConsumerCannotRequest() (gas: 23014)
+[PASS] test_SetConsumerAuthorization_OnlyOwner() (gas: 16540)
+[PASS] test_SetRequestConfirmations_RevertsBelowMinimum() (gas: 13660)
+Suite result: ok. 18 passed; 0 failed; 0 skipped; finished in 76.50ms (132.16ms CPU time)
+
+Ran 23 tests for test/Treasury.t.sol:TreasuryTest
+[PASS] testFuzz_OpenAndSettlePreservesSolvency(uint256,uint256,uint256) (runs: 256, μ: 273867, ~: 274524)
+[PASS] testFuzz_QuotePayoutNeverExceedsGross(uint256) (runs: 256, μ: 11349, ~: 10732)
+[PASS] test_Constructor_RevertsOnExcessiveHouseEdge() (gas: 121390)
+[PASS] test_OnlyOwnerCanAdminister() (gas: 28332)
+[PASS] test_OpenBet_ERC20_EscrowsStakeAndLocksPayout() (gas: 251288)
+[PASS] test_OpenBet_ERC20_RevertsIfEthSent() (gas: 46061)
+[PASS] test_OpenBet_ETH_EscrowsStake() (gas: 202780)
+[PASS] test_OpenBet_ETH_RevertsOnValueMismatch() (gas: 43722)
+[PASS] test_OpenBet_RevertsForUnauthorizedGame() (gas: 21819)
+[PASS] test_OpenBet_RevertsOnStakeOutOfRange() (gas: 63799)
+[PASS] test_OpenBet_RevertsOnUnsupportedToken() (gas: 829441)
+[PASS] test_OpenBet_RevertsWhenPayoutExceedsLiquidity() (gas: 69225)
+[PASS] test_Pause_BlocksNewBetsButNotSettlement() (gas: 273099)
+[PASS] test_QuotePayout_AppliesHouseEdge() (gas: 10324)
+[PASS] test_SetTokenConfig_RevertsOnBadLimits() (gas: 17127)
+[PASS] test_SettleBet_ETH_Win() (gas: 196813)
+[PASS] test_SettleBet_Loss_HouseKeepsStake() (gas: 240915)
+[PASS] test_SettleBet_RevertsForWrongGame() (gas: 274353)
+[PASS] test_SettleBet_RevertsIfAlreadySettled() (gas: 232209)
+[PASS] test_SettleBet_RevertsIfPayoutExceedsReserved() (gas: 242664)
+[PASS] test_SettleBet_Win_PaysPlayerAndReleasesLock() (gas: 249852)
+[PASS] test_WithdrawLiquidity_CannotTouchLockedFunds() (gas: 278123)
+[PASS] test_WithdrawLiquidity_OnlyOwner() (gas: 19378)
+Suite result: ok. 23 passed; 0 failed; 0 skipped; finished in 76.49ms (88.37ms CPU time)
+
+Ran 49 tests for test/Lottery.t.sol:LotteryTest
+[PASS] test_buyTicket_ERC20() (gas: 1265256)
+[PASS] test_buyTicket_multiple() (gas: 449558)
+[PASS] test_buyTicket_multiplePlayers() (gas: 495306)
+[PASS] test_buyTicket_reverts_exceedsMax() (gas: 384418)
+[PASS] test_buyTicket_reverts_roundEnded() (gas: 225768)
+[PASS] test_buyTicket_reverts_wrongETH() (gas: 229141)
+[PASS] test_buyTicket_selfReferralPrevented() (gas: 395135)
+[PASS] test_buyTicket_single() (gas: 344583)
+[PASS] test_buyTicket_withReferral() (gas: 472208)
+[PASS] test_cancelRound() (gas: 342208)
+[PASS] test_claimPrize_ERC20() (gas: 1588361)
+[PASS] test_claimPrize_normal() (gas: 645953)
+[PASS] test_claimPrize_reverts_doubleClaim() (gas: 644486)
+[PASS] test_claimPrize_reverts_notWinner() (gas: 600243)
+[PASS] test_completeDraw_houseEdgeToTreasury() (gas: 797872)
+[PASS] test_completeDraw_multipleWinners() (gas: 889910)
+[PASS] test_completeDraw_noDuplicateWinners() (gas: 823769)
+[PASS] test_completeDraw_singleParticipant() (gas: 590731)
+[PASS] test_completeDraw_singleWinner() (gas: 702363)
+[PASS] test_constructor() (gas: 24978)
+[PASS] test_constructor_reverts_zeroTreasury() (gas: 122413)
+[PASS] test_constructor_reverts_zeroVRF() (gas: 121707)
+[PASS] test_createRound_ERC20() (gas: 1084276)
+[PASS] test_createRound_ETH() (gas: 228225)
+[PASS] test_createRound_reverts_badDuration() (gas: 24106)
+[PASS] test_createRound_reverts_belowMinBet() (gas: 46922)
+[PASS] test_createRound_reverts_maxTicketsLessThanWinners() (gas: 23670)
+[PASS] test_createRound_reverts_tooManyWinners() (gas: 21942)
+[PASS] test_createRound_reverts_zeroPrice() (gas: 22344)
+[PASS] test_createRound_reverts_zeroWinners() (gas: 21917)
+[PASS] test_pause() (gas: 349587)
+[PASS] test_receive_acceptsETH() (gas: 20551)
+[PASS] test_refund() (gas: 400798)
+[PASS] test_refund_reverts_doubleRefund() (gas: 378336)
+[PASS] test_refund_reverts_notCancelled() (gas: 328093)
+[PASS] test_retryDraw() (gas: 482527)
+[PASS] test_retryDraw_reverts_beforeTimeout() (gas: 436668)
+[PASS] test_setTreasury() (gas: 1082033)
+[PASS] test_setVRFConsumer() (gas: 946000)
+[PASS] test_setVRFTimeout() (gas: 22687)
+[PASS] test_triggerDraw_emptyPool_cancels() (gas: 228755)
+[PASS] test_triggerDraw_normal() (gas: 467753)
+[PASS] test_triggerDraw_reverts_notEnded() (gas: 324178)
+[PASS] test_triggerDraw_reverts_notOpen() (gas: 411776)
+[PASS] test_unlimitedTickets() (gas: 1434928)
+[PASS] test_view_canClaimPrize() (gas: 607422)
+[PASS] test_view_getRound() (gas: 218962)
+[PASS] test_view_isWinner() (gas: 602003)
+[PASS] test_zeroReferralCode_noEffect() (gas: 329309)
+Suite result: ok. 49 passed; 0 failed; 0 skipped; finished in 454.77ms (20.61ms CPU time)
+
+Ran 5 tests for test/invariant/SystemInvariant.t.sol:SystemInvariantTest
+[PASS] invariant_AvailableLiquidityMatchesFormula() (runs: 64, calls: 2048, reverts: 0)
+
+╭-------------+-------------------+-------+---------+----------╮
+| Contract    | Selector          | Calls | Reverts | Discards |
++==============================================================+
+| DiceHandler | fulfillRandomness | 665   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | placeBet          | 687   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | topUpHouse        | 696   | 0       | 0        |
+╰-------------+-------------------+-------+---------+----------╯
+
+[PASS] invariant_FulfilledNeverExceedsPlaced() (runs: 64, calls: 2048, reverts: 0)
+
+╭-------------+-------------------+-------+---------+----------╮
+| Contract    | Selector          | Calls | Reverts | Discards |
++==============================================================+
+| DiceHandler | fulfillRandomness | 665   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | placeBet          | 687   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | topUpHouse        | 696   | 0       | 0        |
+╰-------------+-------------------+-------+---------+----------╯
+
+[PASS] invariant_HouseEdgeWithinCap() (runs: 64, calls: 2048, reverts: 0)
+
+╭-------------+-------------------+-------+---------+----------╮
+| Contract    | Selector          | Calls | Reverts | Discards |
++==============================================================+
+| DiceHandler | fulfillRandomness | 665   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | placeBet          | 687   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | topUpHouse        | 696   | 0       | 0        |
+╰-------------+-------------------+-------+---------+----------╯
+
+[PASS] invariant_NFTFlagImpliesOwnership() (runs: 64, calls: 2048, reverts: 0)
+
+╭-------------+-------------------+-------+---------+----------╮
+| Contract    | Selector          | Calls | Reverts | Discards |
++==============================================================+
+| DiceHandler | fulfillRandomness | 665   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | placeBet          | 687   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | topUpHouse        | 696   | 0       | 0        |
+╰-------------+-------------------+-------+---------+----------╯
+
+[PASS] invariant_TreasuryRemainsSolvent() (runs: 64, calls: 2048, reverts: 0)
+
+╭-------------+-------------------+-------+---------+----------╮
+| Contract    | Selector          | Calls | Reverts | Discards |
++==============================================================+
+| DiceHandler | fulfillRandomness | 665   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | placeBet          | 687   | 0       | 0        |
+|-------------+-------------------+-------+---------+----------|
+| DiceHandler | topUpHouse        | 696   | 0       | 0        |
+╰-------------+-------------------+-------+---------+----------╯
+
+Suite result: ok. 5 passed; 0 failed; 0 skipped; finished in 544.40ms (2.34s CPU time)
+
+Ran 8 test suites in 545.31ms (1.24s CPU time): 137 tests passed, 0 failed, 0 skipped (137 total tests)
+
+╭------------------------+------------------+------------------+-----------------+----------------╮
+| File                   | % Lines          | % Statements     | % Branches      | % Funcs        |
++=================================================================================================+
+| src/AchievementNFT.sol | 93.33% (14/15)   | 91.67% (11/12)   | 0.00% (0/8)     | 100.00% (3/3)  |
+|------------------------+------------------+------------------+-----------------+----------------|
+| src/DiceGame.sol       | 86.00% (86/100)  | 89.25% (83/93)   | 12.12% (8/66)   | 69.23% (9/13)  |
+|------------------------+------------------+------------------+-----------------+----------------|
+| src/Lottery.sol        | 90.37% (197/218) | 91.23% (208/228) | 22.22% (22/99)  | 89.29% (25/28) |
+|------------------------+------------------+------------------+-----------------+----------------|
+| src/Referral.sol       | 80.00% (44/55)   | 76.00% (38/50)   | 17.24% (5/29)   | 90.00% (9/10)  |
+|------------------------+------------------+------------------+-----------------+----------------|
+| src/Treasury.sol       | 87.64% (78/89)   | 83.84% (83/99)   | 63.33% (19/30)  | 78.95% (15/19) |
+|------------------------+------------------+------------------+-----------------+----------------|
+| src/VRFConsumer.sol    | 96.05% (73/76)   | 95.77% (68/71)   | 90.00% (9/10)   | 94.44% (17/18) |
+|------------------------+------------------+------------------+-----------------+----------------|
+| Total                  | 88.97% (492/553) | 88.79% (491/553) | 26.03% (63/242) | 85.71% (78/91) |
+╰------------------------+------------------+------------------+-----------------+----------------╯

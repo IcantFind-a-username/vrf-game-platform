@@ -12,6 +12,7 @@ evm_version = "cancun"
 optimizer = true
 optimizer_runs = 200
 verbosity = 2
+via_ir = true
 
 remappings = [
     "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",

@@ -198,3 +198,196 @@ cast call $TREASURY "tokenConfig(address)(bool,uint256,uint256)" \
 
 If any of these returns an unexpected value, something has been changed since
 the deployment block (10887318) — check Etherscan tx history to see what.
+
+---
+
+## 9. Deploying the Dice game layer (Members 2)
+
+The dice layer comprises two contracts: `DiceGame` and `AchievementNFT`. Both
+are bundled into `script/DeployDice.s.sol`, which reads the
+`VRFConsumer` / `Treasury` addresses from environment variables (or
+`HelperConfig`) and wires the contracts together at deploy time.
+
+### 9.1 Prerequisites
+
+```bash
+# These must already be set in .env (or exported in shell)
+export VRF_CONSUMER=0x64754668789Cc46F7d441c09D9293C97d6257E2C
+export TREASURY=0x526BD277AF3efc291a98f5958b16783cc9821B75
+export SEPOLIA_RPC_URL=https://ethereum-sepolia.publicnode.com
+export ETHERSCAN_API_KEY=<your key>
+```
+
+### 9.2 Deploy
+
+```bash
+source .env && forge script script/DeployDice.s.sol:DeployDice \
+  --rpc-url "$SEPOLIA_RPC_URL" \
+  --account sc6107-burner \
+  --broadcast \
+  --verify
+```
+
+The script performs these on-chain actions in a single broadcast:
+
+1. `new AchievementNFT(owner)` — deploys the NFT contract.
+2. `new DiceGame(owner, vrfConsumer, treasury, achievementNFT)` — deploys the dice game with all four dependencies wired into immutable state.
+3. `achievementNFT.setGameContract(diceGame)` — grants the dice game exclusive minting authority.
+
+The broadcast record will be written to `broadcast/DeployDice.s.sol/11155111/run-latest.json`.
+
+### 9.3 Post-deploy wiring (run by Member 1 / Treasury owner)
+
+After the script returns, capture `$DICE_GAME` from the broadcast record (or
+the script's console output) and authorise it on the infrastructure layer:
+
+```bash
+DICE_GAME=<address from script output>
+
+cast send $VRF_CONSUMER "setConsumerAuthorization(address,bool)" $DICE_GAME true \
+  --rpc-url $SEPOLIA_RPC_URL --account sc6107-burner
+
+cast send $TREASURY "setGameAuthorization(address,bool)" $DICE_GAME true \
+  --rpc-url $SEPOLIA_RPC_URL --account sc6107-burner
+```
+
+Verify with:
+
+```bash
+cast call $VRF_CONSUMER "isAuthorizedConsumer(address)(bool)" $DICE_GAME --rpc-url $SEPOLIA_RPC_URL
+cast call $TREASURY "isAuthorizedGame(address)(bool)" $DICE_GAME --rpc-url $SEPOLIA_RPC_URL
+# both should print true
+```
+
+---
+
+## 10. Deploying the Lottery layer (Member 3)
+
+The lottery layer comprises `Lottery` and `Referral`. They are deployed
+together by `script/DeployLottery.s.sol`.
+
+### 10.1 Deploy
+
+```bash
+source .env && forge script script/DeployLottery.s.sol:DeployLottery \
+  --rpc-url "$SEPOLIA_RPC_URL" \
+  --account sc6107-burner \
+  --broadcast \
+  --verify
+```
+
+The script performs:
+
+1. `new Referral(owner, commissionBps = 100)` — 1% commission tracker.
+2. `new Lottery(owner, vrfConsumer, treasury)` — deploys the lottery.
+3. `lottery.setReferral(referral)` — links lottery → referral.
+4. `referral.setLottery(lottery)` — links referral → lottery (only the lottery can call `recordTicketPurchase`).
+
+### 10.2 Post-deploy wiring (run by Member 1 / Treasury owner)
+
+```bash
+LOTTERY=<address from script output>
+
+cast send $VRF_CONSUMER "setConsumerAuthorization(address,bool)" $LOTTERY true \
+  --rpc-url $SEPOLIA_RPC_URL --account sc6107-burner
+
+cast send $TREASURY "setGameAuthorization(address,bool)" $LOTTERY true \
+  --rpc-url $SEPOLIA_RPC_URL --account sc6107-burner
+```
+
+### 10.3 Funding the house
+
+Before opening a lottery round (or accepting dice bets at non-trivial size),
+the `Treasury` must have enough liquidity to cover the worst-case payout of
+all open bets simultaneously. Top up:
+
+```bash
+cast send $TREASURY "depositLiquidity(address,uint256)" \
+  0x0000000000000000000000000000000000000000 5000000000000000000 \
+  --value 5ether \
+  --rpc-url $SEPOLIA_RPC_URL --account sc6107-burner
+```
+
+This deposits 5 ETH of house liquidity. Confirm with:
+
+```bash
+cast call $TREASURY "availableLiquidity(address)(uint256)" \
+  0x0000000000000000000000000000000000000000 \
+  --rpc-url $SEPOLIA_RPC_URL
+# should return 5000000000000000000 (= 5 ether)
+```
+
+---
+
+## 11. Post-deployment wiring checklist
+
+When deploying the full stack to a fresh network, run this checklist top-to-bottom and tick each box.
+
+- [ ] `Deploy.s.sol` ran successfully; `VRFConsumer` and `Treasury` addresses recorded.
+- [ ] Both contracts verified on Etherscan (`--verify` flag, or `forge verify-contract` manually).
+- [ ] `VRFConsumer` registered as a consumer on the VRF v2.5 subscription dashboard.
+- [ ] LINK balance on the subscription is ≥ 5 LINK (or equivalent) for testing headroom.
+- [ ] `Treasury.setTokenConfig(NATIVE, true, minBet, maxBet)` executed.
+- [ ] `Treasury.depositLiquidity(NATIVE, amount)` executed with at least `maxBet × 10`.
+- [ ] `DeployDice.s.sol` ran; `DiceGame` and `AchievementNFT` addresses recorded.
+- [ ] `AchievementNFT.setGameContract(diceGame)` confirmed (the deploy script does this, but verify).
+- [ ] `VRFConsumer.setConsumerAuthorization(diceGame, true)` executed.
+- [ ] `Treasury.setGameAuthorization(diceGame, true)` executed.
+- [ ] `DeployLottery.s.sol` ran; `Lottery` and `Referral` addresses recorded.
+- [ ] `Lottery.setReferral(referral)` and `Referral.setLottery(lottery)` confirmed.
+- [ ] `VRFConsumer.setConsumerAuthorization(lottery, true)` executed.
+- [ ] `Treasury.setGameAuthorization(lottery, true)` executed.
+- [ ] All six addresses added to `abi-export/addresses.json` (or equivalent) for the frontend.
+- [ ] Smoke test: place a dummy dice bet of the minimum stake and confirm it settles within ~2 minutes.
+- [ ] Smoke test: create a 10-minute lottery round with 5 tickets max, buy one ticket from a different account, wait for the round to end, trigger the draw, claim the prize.
+
+---
+
+## 12. Troubleshooting
+
+**`VRFConsumer.requestRandomness` reverts with `OnlyAuthorizedConsumer`.**
+The game contract was not added to the consumer allowlist. Run
+`cast send $VRF_CONSUMER "setConsumerAuthorization(address,bool)" $GAME true`
+from the VRFConsumer owner account.
+
+**`Treasury.openBet` reverts with `UnauthorizedGame`.**
+The game contract is not on the Treasury allowlist. Run
+`cast send $TREASURY "setGameAuthorization(address,bool)" $GAME true`
+from the Treasury owner account.
+
+**`Treasury.openBet` reverts with `InsufficientLiquidity`.**
+`availableLiquidity(token) < maxPayout` for the requested bet. Either reduce
+the stake (which reduces `maxPayout = stake × 6 × (1 - houseEdge)` on dice) or
+top up liquidity with `depositLiquidity`.
+
+**`VRFConsumer.requestRandomness` reverts with a Chainlink error.**
+The subscription is out of LINK, or `VRFConsumer` has not been added as a
+consumer on the subscription dashboard. Visit
+<https://vrf.chain.link/sepolia/<subId>> and check both.
+
+**VRF callback never arrives (request stuck in `PENDING`).**
+After `requestTimeout` (default 1 hour), call `VRFConsumer.retryRequest(requestId)`
+to re-submit the request to Chainlink. The original request stays marked as
+`RETRIED`; the new requestId is emitted in the `RequestRetried` event.
+
+**Deploy script aborts with `Error: Failed to get nonce`.**
+The keystore was not unlocked or `$SEPOLIA_RPC_URL` is unreachable. Verify
+with `cast wallet ls` and `cast block-number --rpc-url $SEPOLIA_RPC_URL`.
+
+**Etherscan verification fails with "Already verified" but UI shows unverified.**
+Etherscan has cached the wrong source. Wait 5 minutes and reload, or
+manually re-verify with `forge verify-contract --watch`.
+
+**`forge build` fails with "stack too deep".**
+`via_ir = true` should be set in `foundry.toml`. If you forked from an old
+revision, copy the setting from the current `foundry.toml` and retry.
+
+**Tests pass locally but `forge coverage` errors out.**
+Use `forge coverage --ir-minimum --no-match-coverage "(script|test)"`. The
+`--ir-minimum` flag is required when `via_ir` is enabled; the
+`--no-match-coverage` filter excludes deploy scripts and test helpers from
+the total.
+
+---
+
+*SC6107 Group Project — Deployment record and operational guide.*

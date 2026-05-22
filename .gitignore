@@ -16,3 +16,5 @@ foundry.lock
 .DS_Store
 .vscode/
 .idea/
+lcov.info
+*.bak

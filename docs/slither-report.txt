@@ -1,0 +1,261 @@
+'forge clean' running (wd: /Users/maxinyi/Projects/vrf-game-platform)
+'forge config --json' running
+'forge build --build-info --skip ./test/** ./script/** --force' running (wd: /Users/maxinyi/Projects/vrf-game-platform)
+INFO:Detectors:
+Detector: arbitrary-send-erc20
+Treasury.openBet(address,address,uint256,uint256) (src/Treasury.sol#271-318) uses arbitrary from in transferFrom: IERC20(token).safeTransferFrom(player,address(this),stake) (src/Treasury.sol#294)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#arbitrary-from-in-transferfrom
+INFO:Detectors:
+Detector: arbitrary-send-eth
+Lottery._completeDraw(uint256,uint256,uint256[]) (src/Lottery.sol#328-364) sends eth to arbitrary user
+	Dangerous calls:
+	- treasury.depositLiquidity{value: houseFee}(address(0),houseFee) (src/Lottery.sol#355)
+Treasury._payOut(address,address,uint256) (src/Treasury.sol#356-363) sends eth to arbitrary user
+	Dangerous calls:
+	- (ok,None) = address(to).call{value: amount}() (src/Treasury.sol#358)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#functions-that-send-ether-to-arbitrary-destinations
+INFO:Detectors:
+Detector: incorrect-equality
+VRFConsumer.isFulfilled(uint256) (src/VRFConsumer.sol#337-339) uses a dangerous strict equality:
+	- _requests[requestId].state == RequestState.FULFILLED (src/VRFConsumer.sol#338)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#dangerous-strict-equalities
+INFO:Detectors:
+Detector: reentrancy-no-eth
+Reentrancy in VRFConsumer.fulfillRandomWords(uint256,uint256[]) (src/VRFConsumer.sol#252-277):
+	External calls:
+	- IRandomnessConsumer(req.consumer).onRandomnessFulfilled(requestId,randomWords) (src/VRFConsumer.sol#271-276)
+	State variables written after the call(s):
+	- req.callbackFailed = true (src/VRFConsumer.sol#274)
+	VRFConsumer._requests (src/VRFConsumer.sol#100) can be used in cross function reentrancies:
+	- VRFConsumer._submitAndRecord(address,uint32) (src/VRFConsumer.sol#284-310)
+	- VRFConsumer.fulfillRandomWords(uint256,uint256[]) (src/VRFConsumer.sol#252-277)
+	- VRFConsumer.getRequest(uint256) (src/VRFConsumer.sol#317-319)
+	- VRFConsumer.getRequestState(uint256) (src/VRFConsumer.sol#322-324)
+	- VRFConsumer.isFulfilled(uint256) (src/VRFConsumer.sol#337-339)
+	- VRFConsumer.isRetryable(uint256) (src/VRFConsumer.sol#342-346)
+	- VRFConsumer.retryRequest(uint256) (src/VRFConsumer.sol#221-244)
+Reentrancy in Lottery.retryDraw(uint256) (src/Lottery.sol#260-273):
+	External calls:
+	- newRequestId = vrfConsumer.retryRequest(oldRequestId) (src/Lottery.sol#268)
+	State variables written after the call(s):
+	- _requestToRound[newRequestId] = roundId (src/Lottery.sol#270)
+	Lottery._requestToRound (src/Lottery.sol#71) can be used in cross function reentrancies:
+	- Lottery.onRandomnessFulfilled(uint256,uint256[]) (src/Lottery.sol#277-288)
+	- Lottery.retryDraw(uint256) (src/Lottery.sol#260-273)
+	- Lottery.triggerDraw(uint256) (src/Lottery.sol#241-258)
+	- r.requestId = newRequestId (src/Lottery.sol#269)
+	Lottery._rounds (src/Lottery.sol#54) can be used in cross function reentrancies:
+	- Lottery._completeDraw(uint256,uint256,uint256[]) (src/Lottery.sol#328-364)
+	- Lottery.canClaimPrize(uint256,address) (src/Lottery.sol#470-480)
+	- Lottery.cancelRound(uint256) (src/Lottery.sol#189-195)
+	- Lottery.createRound(address,uint256,uint256,uint256,uint32) (src/Lottery.sol#149-187)
+	- Lottery.getRound(uint256) (src/Lottery.sol#423-427)
+	- Lottery.getRoundStatus(uint256) (src/Lottery.sol#453-457)
+	- Lottery.onRandomnessFulfilled(uint256,uint256[]) (src/Lottery.sol#277-288)
+	- Lottery.retryDraw(uint256) (src/Lottery.sol#260-273)
+	- Lottery.triggerDraw(uint256) (src/Lottery.sol#241-258)
+Reentrancy in Lottery.triggerDraw(uint256) (src/Lottery.sol#241-258):
+	External calls:
+	- requestId = vrfConsumer.requestRandomness(1) (src/Lottery.sol#253)
+	State variables written after the call(s):
+	- r.requestId = requestId (src/Lottery.sol#254)
+	Lottery._rounds (src/Lottery.sol#54) can be used in cross function reentrancies:
+	- Lottery._completeDraw(uint256,uint256,uint256[]) (src/Lottery.sol#328-364)
+	- Lottery.canClaimPrize(uint256,address) (src/Lottery.sol#470-480)
+	- Lottery.cancelRound(uint256) (src/Lottery.sol#189-195)
+	- Lottery.createRound(address,uint256,uint256,uint256,uint32) (src/Lottery.sol#149-187)
+	- Lottery.getRound(uint256) (src/Lottery.sol#423-427)
+	- Lottery.getRoundStatus(uint256) (src/Lottery.sol#453-457)
+	- Lottery.onRandomnessFulfilled(uint256,uint256[]) (src/Lottery.sol#277-288)
+	- Lottery.retryDraw(uint256) (src/Lottery.sol#260-273)
+	- Lottery.triggerDraw(uint256) (src/Lottery.sol#241-258)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-2
+INFO:Detectors:
+Detector: unused-return
+DiceGame._settleBet(uint256,uint8) (src/DiceGame.sol#311-344) ignores return value by achievementNFT.mintFirstWin(bet.player) (src/DiceGame.sol#329)
+Lottery.buyTicket(uint256,uint256,bytes32) (src/Lottery.sol#199-239) ignores return value by referral.recordTicketPurchase(msg.sender,totalCost,refCode) (src/Lottery.sol#235)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#unused-return
+INFO:Detectors:
+Detector: events-access
+Referral.setLottery(address) (src/Referral.sol#63-66) should emit an event for: 
+	- lottery = _lottery (src/Referral.sol#65) 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-access-control
+INFO:Detectors:
+Detector: events-maths
+DiceGame.setRevealTimeout(uint256) (src/DiceGame.sol#361-364) should emit an event for: 
+	- revealTimeout = _revealTimeout (src/DiceGame.sol#363) 
+Lottery.setVRFTimeout(uint256) (src/Lottery.sol#137-139) should emit an event for: 
+	- vrfTimeout = _vrfTimeout (src/Lottery.sol#138) 
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-events-arithmetic
+INFO:Detectors:
+Detector: reentrancy-benign
+Reentrancy in VRFConsumer._submitAndRecord(address,uint32) (src/VRFConsumer.sol#284-310):
+	External calls:
+	- requestId = s_vrfCoordinator.requestRandomWords(VRFV2PlusClient.RandomWordsRequest({keyHash:keyHash,subId:subscriptionId,requestConfirmations:requestConfirmations,callbackGasLimit:callbackGasLimit,numWords:numWords,extraArgs:VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment:nativePayment}))})) (src/VRFConsumer.sol#288-299)
+	State variables written after the call(s):
+	- _requests[requestId] = RandomnessRequest({consumer:consumer,requestedAt:uint64(block.timestamp),numWords:numWords,state:RequestState.PENDING,callbackFailed:false}) (src/VRFConsumer.sol#301-307)
+Reentrancy in DiceGame.commitRoll(bytes32) (src/DiceGame.sol#162-211):
+	External calls:
+	- treasuryBetId = treasury.openBet{value: stake}(msg.sender,NATIVE,stake,maxPayout) (src/DiceGame.sol#174-179)
+	- requestId = vrfConsumer.requestRandomness(1) (src/DiceGame.sol#181)
+	External calls sending eth:
+	- treasuryBetId = treasury.openBet{value: stake}(msg.sender,NATIVE,stake,maxPayout) (src/DiceGame.sol#174-179)
+	State variables written after the call(s):
+	- bets[requestId] = Bet({player:msg.sender,token:NATIVE,stake:stake,guess:0,treasuryBetId:treasuryBetId,settled:false,won:false,result:0,isCommitReveal:true,commitment:commitment,randomFulfilled:false,randomWord:0,revealDeadline:revealDeadline}) (src/DiceGame.sol#185-199)
+	- playerRequests[msg.sender].push(requestId) (src/DiceGame.sol#201)
+Reentrancy in VRFConsumer.retryRequest(uint256) (src/VRFConsumer.sol#221-244):
+	External calls:
+	- newRequestId = _submitAndRecord(req.consumer,req.numWords) (src/VRFConsumer.sol#240)
+		- requestId = s_vrfCoordinator.requestRandomWords(VRFV2PlusClient.RandomWordsRequest({keyHash:keyHash,subId:subscriptionId,requestConfirmations:requestConfirmations,callbackGasLimit:callbackGasLimit,numWords:numWords,extraArgs:VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment:nativePayment}))})) (src/VRFConsumer.sol#288-299)
+	State variables written after the call(s):
+	- retryOf[newRequestId] = requestId (src/VRFConsumer.sol#241)
+Reentrancy in DiceGame.rollDice(uint8) (src/DiceGame.sol#114-155):
+	External calls:
+	- treasuryBetId = treasury.openBet{value: stake}(msg.sender,NATIVE,stake,maxPayout) (src/DiceGame.sol#121-126)
+	- requestId = vrfConsumer.requestRandomness(1) (src/DiceGame.sol#128)
+	External calls sending eth:
+	- treasuryBetId = treasury.openBet{value: stake}(msg.sender,NATIVE,stake,maxPayout) (src/DiceGame.sol#121-126)
+	State variables written after the call(s):
+	- bets[requestId] = Bet({player:msg.sender,token:NATIVE,stake:stake,guess:guess,treasuryBetId:treasuryBetId,settled:false,won:false,result:0,isCommitReveal:false,commitment:bytes32(0),randomFulfilled:false,randomWord:0,revealDeadline:0}) (src/DiceGame.sol#130-144)
+	- playerRequests[msg.sender].push(requestId) (src/DiceGame.sol#146)
+Reentrancy in Lottery.triggerDraw(uint256) (src/Lottery.sol#241-258):
+	External calls:
+	- requestId = vrfConsumer.requestRandomness(1) (src/Lottery.sol#253)
+	State variables written after the call(s):
+	- _requestToRound[requestId] = roundId (src/Lottery.sol#255)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-3
+INFO:Detectors:
+Detector: reentrancy-events
+Reentrancy in Lottery._completeDraw(uint256,uint256,uint256[]) (src/Lottery.sol#328-364):
+	External calls:
+	- treasury.depositLiquidity{value: houseFee}(address(0),houseFee) (src/Lottery.sol#355)
+	- treasury.depositLiquidity(r.token,houseFee) (src/Lottery.sol#358)
+	External calls sending eth:
+	- treasury.depositLiquidity{value: houseFee}(address(0),houseFee) (src/Lottery.sol#355)
+	Event emitted after the call(s):
+	- DrawCompleted(roundId,r.requestId,allRandomWords,selectedWinners,selectedPayouts) (src/Lottery.sol#362)
+	- TreasuryFeePaid(roundId,houseFee,0) (src/Lottery.sol#363)
+Reentrancy in VRFConsumer._submitAndRecord(address,uint32) (src/VRFConsumer.sol#284-310):
+	External calls:
+	- requestId = s_vrfCoordinator.requestRandomWords(VRFV2PlusClient.RandomWordsRequest({keyHash:keyHash,subId:subscriptionId,requestConfirmations:requestConfirmations,callbackGasLimit:callbackGasLimit,numWords:numWords,extraArgs:VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment:nativePayment}))})) (src/VRFConsumer.sol#288-299)
+	Event emitted after the call(s):
+	- RandomnessRequested(requestId,consumer,numWords) (src/VRFConsumer.sol#309)
+Reentrancy in VRFConsumer.fulfillRandomWords(uint256,uint256[]) (src/VRFConsumer.sol#252-277):
+	External calls:
+	- IRandomnessConsumer(req.consumer).onRandomnessFulfilled(requestId,randomWords) (src/VRFConsumer.sol#271-276)
+	Event emitted after the call(s):
+	- ConsumerCallbackFailed(requestId,req.consumer) (src/VRFConsumer.sol#275)
+Reentrancy in Lottery.retryDraw(uint256) (src/Lottery.sol#260-273):
+	External calls:
+	- newRequestId = vrfConsumer.retryRequest(oldRequestId) (src/Lottery.sol#268)
+	Event emitted after the call(s):
+	- VRFTimeoutRetry(roundId,oldRequestId,newRequestId) (src/Lottery.sol#272)
+Reentrancy in VRFConsumer.retryRequest(uint256) (src/VRFConsumer.sol#221-244):
+	External calls:
+	- newRequestId = _submitAndRecord(req.consumer,req.numWords) (src/VRFConsumer.sol#240)
+		- requestId = s_vrfCoordinator.requestRandomWords(VRFV2PlusClient.RandomWordsRequest({keyHash:keyHash,subId:subscriptionId,requestConfirmations:requestConfirmations,callbackGasLimit:callbackGasLimit,numWords:numWords,extraArgs:VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment:nativePayment}))})) (src/VRFConsumer.sol#288-299)
+	Event emitted after the call(s):
+	- RequestRetried(requestId,newRequestId) (src/VRFConsumer.sol#243)
+Reentrancy in Lottery.triggerDraw(uint256) (src/Lottery.sol#241-258):
+	External calls:
+	- requestId = vrfConsumer.requestRandomness(1) (src/Lottery.sol#253)
+	Event emitted after the call(s):
+	- DrawRequested(roundId,requestId) (src/Lottery.sol#257)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#reentrancy-vulnerabilities-4
+INFO:Detectors:
+Detector: timestamp
+DiceGame.revealRoll(uint256,uint8,bytes32) (src/DiceGame.sol#219-247) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(bet.player != address(0),Bet does not exist) (src/DiceGame.sol#228)
+	- require(bool,string)(bet.isCommitReveal,Not commit-reveal bet) (src/DiceGame.sol#229)
+	- require(bool,string)(msg.sender == bet.player,Only player can reveal) (src/DiceGame.sol#230)
+	- require(bool,string)(! bet.settled,Bet already settled) (src/DiceGame.sol#231)
+	- require(bool,string)(bet.randomFulfilled,Randomness not ready) (src/DiceGame.sol#232)
+	- require(bool,string)(block.timestamp <= bet.revealDeadline,Reveal deadline passed) (src/DiceGame.sol#233)
+	- require(bool,string)(computedCommitment == bet.commitment,Invalid reveal) (src/DiceGame.sol#239)
+DiceGame.forfeitExpiredRoll(uint256) (src/DiceGame.sol#253-279) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(bet.player != address(0),Bet does not exist) (src/DiceGame.sol#256)
+	- require(bool,string)(bet.isCommitReveal,Not commit-reveal bet) (src/DiceGame.sol#257)
+	- require(bool,string)(! bet.settled,Bet already settled) (src/DiceGame.sol#258)
+	- require(bool,string)(bet.randomFulfilled,Randomness not ready) (src/DiceGame.sol#259)
+	- require(bool,string)(block.timestamp > bet.revealDeadline,Reveal period not expired) (src/DiceGame.sol#260)
+DiceGame.onRandomnessFulfilled(uint256,uint256[]) (src/DiceGame.sol#284-309) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(bet.player != address(0),Bet does not exist) (src/DiceGame.sol#293)
+	- require(bool,string)(! bet.settled,Bet already settled) (src/DiceGame.sol#294)
+DiceGame._settleBet(uint256,uint8) (src/DiceGame.sol#311-344) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(bet.player != address(0),Bet does not exist) (src/DiceGame.sol#314)
+	- require(bool,string)(! bet.settled,Bet already settled) (src/DiceGame.sol#315)
+Lottery.cancelRound(uint256) (src/Lottery.sol#189-195) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(r.status == RoundStatus.OPEN,Not open) (src/Lottery.sol#191)
+Lottery.buyTicket(uint256,uint256,bytes32) (src/Lottery.sol#199-239) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(r.status == RoundStatus.OPEN,Round not open) (src/Lottery.sol#205)
+	- require(bool,string)(block.timestamp >= r.startTime,Not started) (src/Lottery.sol#206)
+	- require(bool,string)(block.timestamp < r.endTime,Round ended) (src/Lottery.sol#207)
+	- require(bool,string)(r.totalTicketsSold + numTickets <= r.maxTickets,Exceeds max tickets) (src/Lottery.sol#211)
+Lottery.triggerDraw(uint256) (src/Lottery.sol#241-258) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(r.status == RoundStatus.OPEN,Not open) (src/Lottery.sol#243)
+	- require(bool,string)(block.timestamp >= r.endTime,Round not ended) (src/Lottery.sol#244)
+Lottery.retryDraw(uint256) (src/Lottery.sol#260-273) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(r.status == RoundStatus.DRAWING,Not in drawing) (src/Lottery.sol#262)
+	- require(bool,string)(block.timestamp >= r.endTime + vrfTimeout,VRF timeout not reached) (src/Lottery.sol#263)
+Lottery.onRandomnessFulfilled(uint256,uint256[]) (src/Lottery.sol#277-288) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(r.status == RoundStatus.DRAWING,Not in drawing) (src/Lottery.sol#284)
+Lottery.claimPrize(uint256) (src/Lottery.sol#368-398) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(r.status == RoundStatus.COMPLETED,Not completed) (src/Lottery.sol#370)
+	- require(bool,string)(r.prizesClaimable,Prizes not claimable) (src/Lottery.sol#371)
+Lottery.claimRefund(uint256) (src/Lottery.sol#400-419) uses timestamp for comparisons
+	Dangerous comparisons:
+	- require(bool,string)(r.status == RoundStatus.CANCELLED,Not cancelled) (src/Lottery.sol#402)
+VRFConsumer.retryRequest(uint256) (src/VRFConsumer.sol#221-244) uses timestamp for comparisons
+	Dangerous comparisons:
+	- block.timestamp < readyAt (src/VRFConsumer.sol#236)
+VRFConsumer.isFulfilled(uint256) (src/VRFConsumer.sol#337-339) uses timestamp for comparisons
+	Dangerous comparisons:
+	- _requests[requestId].state == RequestState.FULFILLED (src/VRFConsumer.sol#338)
+VRFConsumer.isRetryable(uint256) (src/VRFConsumer.sol#342-346) uses timestamp for comparisons
+	Dangerous comparisons:
+	- req.state == RequestState.PENDING && block.timestamp >= uint256(req.requestedAt) + requestTimeout (src/VRFConsumer.sol#344-345)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#block-timestamp
+INFO:Detectors:
+Detector: low-level-calls
+Low level call in Lottery.claimPrize(uint256) (src/Lottery.sol#368-398):
+	- (sent,None) = msg.sender.call{value: payout}() (src/Lottery.sol#391)
+Low level call in Lottery.claimRefund(uint256) (src/Lottery.sol#400-419):
+	- (sent,None) = msg.sender.call{value: refundAmount}() (src/Lottery.sol#412)
+Low level call in Lottery.recoverStuckFunds(address,address) (src/Lottery.sol#492-503):
+	- (sent,None) = to.call{value: amount}() (src/Lottery.sol#497)
+Low level call in Referral.claimCommission(address) (src/Referral.sol#119-136):
+	- (sent,None) = msg.sender.call{value: amount}() (src/Referral.sol#129)
+Low level call in Referral.recoverStuckFunds(address,address) (src/Referral.sol#162-173):
+	- (sent,None) = to.call{value: amount}() (src/Referral.sol#167)
+Low level call in Treasury._payOut(address,address,uint256) (src/Treasury.sol#356-363):
+	- (ok,None) = address(to).call{value: amount}() (src/Treasury.sol#358)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#low-level-calls
+INFO:Detectors:
+Detector: missing-inheritance
+Referral (src/Referral.sol#9-174) should inherit from IReferral (src/interfaces/IReferral.sol#4-10)
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#missing-inheritance
+INFO:Detectors:
+Detector: naming-convention
+Parameter AchievementNFT.setGameContract(address)._gameContract (src/AchievementNFT.sol#35) is not in mixedCase
+Parameter DiceGame.setVRFConsumer(address)._vrfConsumer (src/DiceGame.sol#346) is not in mixedCase
+Parameter DiceGame.setTreasury(address)._treasury (src/DiceGame.sol#351) is not in mixedCase
+Parameter DiceGame.setAchievementNFT(address)._achievementNFT (src/DiceGame.sol#356) is not in mixedCase
+Parameter DiceGame.setRevealTimeout(uint256)._revealTimeout (src/DiceGame.sol#361) is not in mixedCase
+Parameter Lottery.setVRFConsumer(address)._vrfConsumer (src/Lottery.sol#123) is not in mixedCase
+Parameter Lottery.setTreasury(address)._treasury (src/Lottery.sol#128) is not in mixedCase
+Parameter Lottery.setReferral(address)._referral (src/Lottery.sol#133) is not in mixedCase
+Parameter Lottery.setVRFTimeout(uint256)._vrfTimeout (src/Lottery.sol#137) is not in mixedCase
+Parameter Referral.setLottery(address)._lottery (src/Referral.sol#63) is not in mixedCase
+Parameter Referral.setCommissionBps(uint256)._bps (src/Referral.sol#68) is not in mixedCase
+Reference: https://github.com/crytic/slither/wiki/Detector-Documentation#conformance-to-solidity-naming-conventions
+INFO:Slither:. analyzed (44 contracts with 101 detectors), 55 result(s) found
