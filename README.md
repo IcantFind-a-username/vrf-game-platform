@@ -1,193 +1,182 @@
 # SC6107 Group Project — On-Chain Verifiable Random Game Platform
 
-## Member 1 Deliverable: VRF + Treasury Infrastructure
+A two-game gambling protocol built on Foundry and deployed to Ethereum Sepolia, with all randomness sourced from **Chainlink VRF v2.5**. Players can roll a 1d6 dice (instant or commit-reveal) and participate in pari-mutuel lottery rounds; both games share a single house bank (`Treasury`) that enforces a protocol-wide solvency invariant. First-win dice players are minted a one-shot achievement NFT, and lottery referrals earn a 1% commission.
 
-This repository contains the **shared infrastructure layer** that every game
-contract on the platform depends on. It is deliberately self-contained: Members
-2 & 3 build their game contracts (dice, lottery, …) *on top of* the three
-interfaces exported here and never need to touch the infrastructure internals.
-
-| Contract | Responsibility |
-|----------|----------------|
-| `VRFConsumer.sol` | Single integration point with **Chainlink VRF v2.5**. Owns the VRF subscription config, routes verifiable random words back to the requesting game, and exposes a timeout-based retry path. |
-| `Treasury.sol` | The **house bank**. Escrows player stakes, reserves worst-case payouts, pays winners, applies the house edge, and supports native ETH plus arbitrary ERC-20 tokens. |
-| `interfaces/` | `IVRFConsumer`, `IRandomnessConsumer`, `ITreasury` — the **only** surface Members 2 & 3 should compile against. |
+[![Tests](https://img.shields.io/badge/tests-137%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-88.97%25-brightgreen)]()
+[![Slither](https://img.shields.io/badge/slither-0%20critical-brightgreen)]()
+[![Solidity](https://img.shields.io/badge/solidity-0.8.24-blue)]()
 
 ---
 
-## 1. Project layout
+## 1. Contracts
+
+The protocol is organised into a game-agnostic **infrastructure layer** and a game-specific **game layer**, joined by four narrow interfaces.
+
+| Contract | Layer | Responsibility |
+|---|---|---|
+| `VRFConsumer.sol` | Infra | Single integration point with Chainlink VRF v2.5. Authorises games via `setConsumerAuthorization`, routes random words back through `IRandomnessConsumer`, and exposes a timeout-based retry path. |
+| `Treasury.sol` | Infra | House bank. Locks worst-case payouts on `openBet`, releases them on `settleBet`, applies a configurable house edge (default 2.5%, capped at 20%), and supports native ETH plus arbitrary ERC-20 tokens. |
+| `DiceGame.sol` | Game | 1d6 dice. Two play modes: instant `rollDice(guess)` and a commit-reveal flow (`commitRoll` → `revealRoll`) that pre-binds the guess for MEV resistance. |
+| `Lottery.sol` | Game | Pari-mutuel lottery with multiple winners per round, referral integration, refund-on-cancel, and a 24h VRF-timeout retry path. |
+| `AchievementNFT.sol` | Game | ERC-721 NFT minted exactly once per address on a first dice win. |
+| `Referral.sol` | Game | Off-chain-style referral commission tracker. Records purchases from referred buyers and pays out 1% commission on `claimCommission`. |
+
+Interfaces in `src/interfaces/` (`IVRFConsumer`, `IRandomnessConsumer`, `ITreasury`, `IReferral`) are the only surface a new game contract should compile against.
+
+For a deep dive into call graphs, sequence diagrams, and design decisions, see **[`docs/architecture.md`](docs/architecture.md)**.
+
+## 2. Project layout
 
 ```
-contracts/
+vrf-game-platform/
 ├── src/
-│   ├── VRFConsumer.sol            # Chainlink VRF v2.5 consumer
-│   ├── Treasury.sol               # house fund pool
+│   ├── VRFConsumer.sol            # Chainlink VRF v2.5 consumer (infra)
+│   ├── Treasury.sol               # house bank (infra)
+│   ├── DiceGame.sol               # 1d6 dice (game)
+│   ├── Lottery.sol                # pari-mutuel lottery (game)
+│   ├── AchievementNFT.sol         # ERC-721 first-win NFT (game)
+│   ├── Referral.sol               # referral commission tracker (game)
 │   └── interfaces/
 │       ├── IVRFConsumer.sol       # games CALL this to request randomness
 │       ├── IRandomnessConsumer.sol# games IMPLEMENT this to receive randomness
-│       └── ITreasury.sol          # games CALL this to escrow / pay out
+│       ├── ITreasury.sol          # games CALL this to escrow / pay out
+│       └── IReferral.sol          # Lottery calls this to record purchases
 ├── script/
 │   ├── HelperConfig.s.sol         # per-network parameters (Sepolia vs local)
-│   └── Deploy.s.sol               # deploys VRFConsumer + Treasury
+│   ├── Deploy.s.sol               # infrastructure deploy (VRFConsumer + Treasury)
+│   ├── DeployDice.s.sol           # DiceGame + AchievementNFT deploy
+│   └── DeployLottery.s.sol        # Lottery + Referral deploy
 ├── test/
-│   ├── VRFConsumer.t.sol          # unit + fuzz tests
-│   ├── Treasury.t.sol             # unit + fuzz tests
+│   ├── *.t.sol                    # 122 unit + fuzz tests
+│   ├── integration/EndToEnd.t.sol # 10 cross-contract integration tests
+│   ├── invariant/SystemInvariant.t.sol # 5 protocol-wide invariants
 │   └── mocks/
 │       ├── MockERC20.sol
-│       ├── MockVRFCoordinator.sol # lets tests fulfil VRF synchronously
-│       └── MockGame.sol           # reference game implementation
+│       ├── MockGame.sol
+│       ├── MockTreasury.sol
+│       ├── MockVRFConsumer.sol
+│       └── MockVRFCoordinator.sol
+├── docs/
+│   ├── architecture.md            # system diagrams + design decisions
+│   ├── security-analysis.md       # Slither + manual review findings
+│   ├── gas-optimization.md        # hot-path analysis + recommendations
+│   ├── coverage-report.txt        # forge coverage summary
+│   ├── slither-report.txt         # raw Slither output
+│   └── gas-report.txt             # raw forge --gas-report output
+├── abi-export/                    # frontend-consumable ABIs
+├── frontend/                      # web frontend (Member 4)
+├── broadcast/                     # Foundry deployment artifacts
+├── DEPLOYMENT.md                  # live deployment record + ops guide
 ├── foundry.toml
 ├── remappings.txt
 ├── .env.example
 └── README.md
 ```
 
----
+## 3. Setup
 
-## 2. Setup
-
-This is a [Foundry](https://book.getfoundry.sh/) project.
+A [Foundry](https://book.getfoundry.sh/) toolchain is required (`forge`, `cast`, `anvil`).
 
 ```bash
-# 1. Install Foundry (one-time, if not already installed)
+# 1. Install Foundry (one-time)
 curl -L https://foundry.paradigm.xyz | bash && foundryup
 
-# 2. Install dependencies into lib/
-forge install foundry-rs/forge-std --no-commit
-forge install OpenZeppelin/openzeppelin-contracts@v5.1.0 --no-commit
-forge install smartcontractkit/chainlink-brownie-contracts --no-commit
+# 2. Clone and install dependencies
+git clone https://github.com/IcantFind-a-username/vrf-game-platform.git
+cd vrf-game-platform
+forge install foundry-rs/forge-std
+forge install OpenZeppelin/openzeppelin-contracts@v5.1.0
+forge install smartcontractkit/chainlink-brownie-contracts
 
 # 3. Build & test
 forge build
 forge test -vvv
 ```
 
-The import remappings (`remappings.txt` / `foundry.toml`) assume the directory
-names produced by the commands above. If `forge install` checks a dependency
-out under a different folder name, update the remapping accordingly.
+Solc is pinned to `0.8.24` and `via_ir = true` is enabled in `foundry.toml`. The first build is slow (~30s) because `via_ir` routes compilation through Yul; subsequent builds are incremental.
 
----
+## 4. Testing & Quality
 
-## 3. Deployment
+The test suite covers all six contracts and the cross-contract integration paths.
+
+| Layer | Files | Tests |
+|---|---|---|
+| Unit + fuzz (per-contract) | `test/*.t.sol` | 122 |
+| Cross-contract integration | `test/integration/EndToEnd.t.sol` | 10 |
+| Protocol-wide invariants (handler-driven fuzz) | `test/invariant/SystemInvariant.t.sol` | 5 |
+| **Total** |  | **137** |
+
+Run individual layers:
 
 ```bash
-cp .env.example .env      # then fill in real values
+forge test                            # full suite
+forge test --match-path "test/integration/*"
+forge test --match-path "test/invariant/*"
+forge coverage --ir-minimum --no-match-coverage "(script|test)"
+forge test --gas-report
+```
 
-# Local (Anvil) — deploys a MockVRFCoordinator automatically
-anvil &
-forge script script/Deploy.s.sol:DeployInfrastructure --rpc-url http://localhost:8545 --broadcast
+**Coverage** (production source only): 88.97% lines, 88.79% statements, 85.71% functions. See [`docs/coverage-report.txt`](docs/coverage-report.txt) for the per-file breakdown.
 
-# Sepolia testnet
+**Static analysis** with Slither (v0.10.x, 101 detectors, 44 contracts) produced 55 findings, none of them exploitable. See [`docs/security-analysis.md`](docs/security-analysis.md) for severity classification and the rationale for each acknowledged finding.
+
+**Gas profile** is documented in [`docs/gas-optimization.md`](docs/gas-optimization.md) with hot-path analysis and concrete optimization recommendations.
+
+## 5. Deployment
+
+The protocol is live on **Sepolia** (chain id `11155111`).
+
+| Contract | Sepolia Address |
+|---|---|
+| `VRFConsumer` | [`0x64754668789Cc46F7d441c09D9293C97d6257E2C`](https://sepolia.etherscan.io/address/0x64754668789Cc46F7d441c09D9293C97d6257E2C) |
+| `Treasury`    | [`0x526BD277AF3efc291a98f5958b16783cc9821B75`](https://sepolia.etherscan.io/address/0x526BD277AF3efc291a98f5958b16783cc9821B75) |
+
+The full deployment record, owner addresses, VRF subscription configuration, and reproducibility commands are in **[`DEPLOYMENT.md`](DEPLOYMENT.md)**.
+
+To deploy a fresh local instance against Anvil:
+
+```bash
+cp .env.example .env  # fill in any values
+
+# terminal 1
+anvil
+
+# terminal 2
 forge script script/Deploy.s.sol:DeployInfrastructure \
-  --rpc-url $SEPOLIA_RPC_URL --account <keystore> --broadcast --verify
+  --rpc-url http://localhost:8545 --broadcast
+forge script script/DeployDice.s.sol:DeployDice \
+  --rpc-url http://localhost:8545 --broadcast
+forge script script/DeployLottery.s.sol:DeployLottery \
+  --rpc-url http://localhost:8545 --broadcast
 ```
 
-**Sepolia prerequisite:** create a VRF v2.5 subscription at
-<https://vrf.chain.link>, fund it with LINK, and put its id in `SUBSCRIPTION_ID`.
-After deployment, register the deployed `VRFConsumer` address as a *consumer* on
-that subscription (the deploy script prints this as a next step).
+## 6. Documentation Index
+
+| Document | What's in it |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | System diagrams (Mermaid), bet/round lifecycle sequence diagrams, trust boundaries, core design decisions |
+| [`docs/security-analysis.md`](docs/security-analysis.md) | Slither findings broken down by severity, manual review notes, acknowledged limitations |
+| [`docs/gas-optimization.md`](docs/gas-optimization.md) | Top-5 hot paths, optimizations already applied, recommendations with estimated savings, optimizations deliberately not applied |
+| [`docs/coverage-report.txt`](docs/coverage-report.txt) | Per-file `forge coverage` output |
+| [`docs/slither-report.txt`](docs/slither-report.txt) | Raw `slither` output for reproducibility |
+| [`docs/gas-report.txt`](docs/gas-report.txt) | Raw `forge --gas-report` output |
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | Live Sepolia deployment record, VRF subscription state, post-deploy wiring checklist, troubleshooting |
+
+## 7. Team & Responsibilities
+
+| Member | Deliverable |
+|---|---|
+| 1 | VRF + Treasury infrastructure, infrastructure deployment to Sepolia |
+| 2 | DiceGame contract (instant + commit-reveal modes), AchievementNFT |
+| 3 | Lottery contract (pari-mutuel, multi-winner draws), Referral |
+| 4 | Web frontend (`frontend/`), ABI export pipeline, demo video |
+| 5 | Integration & invariant testing, security review (Slither), gas profiling, architecture documentation, full-project README, expanded deployment guide |
+
+## 8. License
+
+MIT. See `LICENSE`.
 
 ---
 
-## 4. Integration guide for Members 2 & 3
-
-Your game contract talks to the infrastructure through **two interfaces only**.
-
-### 4.1 Receiving randomness
-
-```solidity
-import {IVRFConsumer} from "src/interfaces/IVRFConsumer.sol";
-import {IRandomnessConsumer} from "src/interfaces/IRandomnessConsumer.sol";
-
-contract DiceGame is IRandomnessConsumer {
-    IVRFConsumer public immutable vrf;
-
-    constructor(address vrfConsumer) {
-        vrf = IVRFConsumer(vrfConsumer);
-    }
-
-    // STEP 1 — ask for randomness; store requestId -> bet mapping
-    function roll() external {
-        uint256 requestId = vrf.requestRandomness(1); // 1 random word
-        // ... record requestId so the callback can find this bet
-    }
-
-    // STEP 2 — VRFConsumer calls you back here once Chainlink fulfils
-    function onRandomnessFulfilled(uint256 requestId, uint256[] calldata words)
-        external
-        override
-    {
-        require(msg.sender == address(vrf), "only VRF");   // MANDATORY guard
-        uint256 die = (words[0] % 6) + 1;
-        // ... resolve the bet and call Treasury.settleBet(...)
-    }
-}
-```
-
-Rules:
-- **Member 1 must authorise your game** before it can request: the infra owner
-  calls `VRFConsumer.setConsumerAuthorization(yourGame, true)`. Tell Member 1
-  your deployed address.
-- `onRandomnessFulfilled` runs inside the VRF callback — keep it light (storage
-  writes and a Treasury call are fine; no unbounded loops).
-- If a request is never fulfilled (subscription ran dry), the game or the infra
-  owner can call `vrf.retryRequest(requestId)` after the timeout.
-- The callback is wrapped in `try/catch` on our side: a bug in your game cannot
-  brick the VRF pipeline, and words are always retrievable via
-  `vrf.getRandomWords(requestId)`.
-
-### 4.2 Escrowing stakes and paying winners
-
-```solidity
-import {ITreasury} from "src/interfaces/ITreasury.sol";
-
-ITreasury treasury = ITreasury(treasuryAddress);
-
-// OPEN — pull the stake and reserve the worst-case payout.
-// Native ETH: pass token = address(0) and forward msg.value == stake.
-// ERC-20:     player must approve the Treasury for `stake` first.
-uint256 betId = treasury.openBet{value: stake}(player, address(0), stake, maxPayout);
-
-// SETTLE — release the reservation; payoutAmount is 0 on a loss.
-treasury.settleBet(betId, payoutAmount);   // payoutAmount <= maxPayout
-```
-
-Rules:
-- `maxPayout` is the **worst case** the house could owe — the Treasury locks
-  exactly that much liquidity, so pass the true ceiling.
-- Use `treasury.quotePayout(grossPayout)` to apply the house edge consistently.
-- Only the game that opened a bet may settle it.
-- Check `treasury.availableLiquidity(token)` and `getBetLimits(token)` before
-  accepting a wager so the player gets a clean revert reason.
-
----
-
-## 5. Network parameters (Sepolia, VRF v2.5)
-
-| Parameter | Value |
-|-----------|-------|
-| VRF Coordinator | `0x9DdfaCa8183c41ad55329BdeeD9F6A8d53168B1B` |
-| Key hash (500 gwei) | `0x787d74caea10b2b357790d5b5247c2f63d1d91572a9846f780606e4d953677ae` |
-| LINK token | `0x779877A7B0D9E8603169DdbD7836e478b4624789` |
-
-These are wired into `script/HelperConfig.s.sol`; local runs use the mock
-coordinator instead.
-
----
-
-## 6. Testing
-
-```bash
-forge test -vvv            # all unit + fuzz tests
-forge test --match-contract VRFConsumerTest
-forge test --match-contract TreasuryTest
-forge coverage             # coverage report
-```
-
-`MockVRFCoordinator` lets tests fulfil randomness synchronously, and `MockGame`
-is a minimal reference implementation of `IRandomnessConsumer` (including a
-`setShouldRevert` flag used to prove a faulty game cannot break the callback).
-
----
-
-*SC6107 Group Project — Member 1 (VRF + Treasury Infrastructure).*
+*SC6107 Group Project — On-Chain Verifiable Random Game Platform.*
